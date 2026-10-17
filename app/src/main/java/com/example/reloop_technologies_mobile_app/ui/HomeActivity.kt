@@ -6,10 +6,21 @@ import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
+import com.example.reloop_technologies_mobile_app.database.UserManager
+import com.google.firebase.auth.FirebaseAuth
 
 class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Restrict authenticated screen: Ensure user is signed in
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser == null && !UserManager.isLoggedIn(this)) {
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
+
         setContentView(R.layout.activity_home)
 
         // Header Bell

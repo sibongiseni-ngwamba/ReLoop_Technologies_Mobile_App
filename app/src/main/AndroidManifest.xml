@@ -11,6 +11,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ReLoop_Technologies_Mobile_App">
+        <activity android:name=".ui.ForgotPasswordActivity" android:exported="false" />
         <activity android:name=".ui.RecyclingGuidanceActivity" android:exported="false" />
         <activity android:name=".ui.ProfileActivity" android:exported="false" />
         <activity android:name=".ui.RewardsActivity" android:exported="false" />
