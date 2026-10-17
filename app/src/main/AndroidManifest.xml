@@ -11,18 +11,18 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ReLoop_Technologies_Mobile_App">
-        <activity android:name=".RecyclingGuidanceActivity" android:exported="false" />
-        <activity android:name=".ProfileActivity" android:exported="false" />
-        <activity android:name=".RewardsActivity" android:exported="false" />
-        <activity android:name=".NotificationsActivity" android:exported="false" />
-        <activity android:name=".SignUpActivity" android:exported="false" />
-        <activity android:name=".MyPickupsActivity" android:exported="false" />
-        <activity android:name=".SchedulePickupActivity" android:exported="false" />
-        <activity android:name=".ResultActivity" android:exported="false" />
-        <activity android:name=".ScanWasteActivity" android:exported="false" />
-        <activity android:name=".HomeActivity" android:exported="false" />
+        <activity android:name=".ui.RecyclingGuidanceActivity" android:exported="false" />
+        <activity android:name=".ui.ProfileActivity" android:exported="false" />
+        <activity android:name=".ui.RewardsActivity" android:exported="false" />
+        <activity android:name=".ui.NotificationsActivity" android:exported="false" />
+        <activity android:name=".ui.SignUpActivity" android:exported="false" />
+        <activity android:name=".ui.MyPickupsActivity" android:exported="false" />
+        <activity android:name=".ui.SchedulePickupActivity" android:exported="false" />
+        <activity android:name=".ui.ResultActivity" android:exported="false" />
+        <activity android:name=".ui.ScanWasteActivity" android:exported="false" />
+        <activity android:name=".ui.HomeActivity" android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

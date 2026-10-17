@@ -14,7 +14,7 @@
 
         <Space
             android:layout_width="1dp"
-            android:layout_height="24dp" />
+            android:layout_height="16dp" />
 
         <!-- Logo Container -->
         <FrameLayout
@@ -41,7 +41,7 @@
 
         <Space
             android:layout_width="1dp"
-            android:layout_height="20dp" />
+            android:layout_height="16dp" />
 
         <!-- Welcome Text -->
         <TextView
@@ -64,7 +64,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="16dp"
             android:text="Full Name"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
@@ -89,7 +89,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:text="Email"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
@@ -110,11 +110,61 @@
             android:textColor="@color/text_primary"
             android:textSize="14sp" />
 
+        <!-- Phone Field -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Phone Number"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/phoneInput"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_input_box"
+            android:drawableStart="@drawable/ic_phone"
+            android:drawablePadding="12dp"
+            android:hint="Enter your phone number"
+            android:textColorHint="@color/text_muted"
+            android:inputType="phone"
+            android:paddingHorizontal="16dp"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+
+        <!-- Address Field -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Address"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/addressInput"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_input_box"
+            android:drawableStart="@drawable/ic_location"
+            android:drawablePadding="12dp"
+            android:hint="Enter your residential address"
+            android:textColorHint="@color/text_muted"
+            android:inputType="textPostalAddress"
+            android:paddingHorizontal="16dp"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+
         <!-- Password Field -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:text="Password"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
@@ -129,19 +179,28 @@
             android:drawableStart="@drawable/ic_lock"
             android:drawableEnd="@drawable/ic_eye"
             android:drawablePadding="12dp"
-            android:hint="Create a password"
+            android:hint="Create a password (min 6 characters)"
             android:textColorHint="@color/text_muted"
             android:inputType="textPassword"
             android:paddingHorizontal="16dp"
             android:textColor="@color/text_primary"
             android:textSize="14sp" />
 
+        <!-- Progress Bar -->
+        <ProgressBar
+            android:id="@+id/signUpProgressBar"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginTop="16dp"
+            android:indeterminateTint="@color/primary_green"
+            android:visibility="gone" />
+
         <!-- Sign Up Button -->
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/signUpButton"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="20dp"
             android:background="@drawable/bg_green_button"
             android:text="Create Account"
             android:textAllCaps="false"
