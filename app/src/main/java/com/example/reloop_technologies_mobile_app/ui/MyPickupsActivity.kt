@@ -1,4 +1,4 @@
-package com.example.reloop_technologies_mobile_app
+package com.example.reloop_technologies_mobile_app.ui
 
 import android.content.Intent
 import android.graphics.Color
@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.example.reloop_technologies_mobile_app.R
 
 class MyPickupsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
