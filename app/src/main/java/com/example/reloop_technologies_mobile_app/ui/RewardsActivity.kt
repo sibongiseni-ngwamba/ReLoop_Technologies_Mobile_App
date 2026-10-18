@@ -23,17 +23,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
-import com.example.reloop_technologies_mobile_app.backend.models.RedemptionLog
-import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
-import com.example.reloop_technologies_mobile_app.database.UserManager
-import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
-import com.google.firebase.auth.FirebaseAuth
-
-class RewardsActivity : AppCompatActivity() {
-
-    private val rewardsRepository = RewardsRepository()
-    private var points = 1200
-    private lateinit var pointsText: TextView
 import com.example.reloop_technologies_mobile_app.backend.models.PointsTransaction
 import com.example.reloop_technologies_mobile_app.backend.models.RedemptionLog
 import com.example.reloop_technologies_mobile_app.backend.models.RewardAccount
@@ -56,7 +45,6 @@ class RewardsActivity : AppCompatActivity() {
     private var catalogueItems: List<RewardItem> = emptyList()
     private var currentFilter: String = "all" // "all", "earned", "redeemed"
     private var isProcessingRedemption: Boolean = false
-    private var currentFilter: String = "all" // "all", "earned", "redeemed"
 
     private lateinit var pointsBalanceText: TextView
     private lateinit var levelBadgeText: TextView
@@ -82,7 +70,6 @@ class RewardsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_rewards)
 
-        pointsText = findViewById(R.id.pointsBalanceText)
         bindViews()
         setupListeners()
     }
@@ -91,15 +78,6 @@ class RewardsActivity : AppCompatActivity() {
         super.onResume()
         loadRewardsData()
     }
-
-    private fun bindViews() {
-        pointsBalanceText = findViewById(R.id.pointsBalanceText)
-        levelBadgeText = findViewById(R.id.levelBadgeText)
-        totalEarnedText = findViewById(R.id.totalEarnedText)
-        totalRedeemedText = findViewById(R.id.totalRedeemedText)
-        levelProgressText = findViewById(R.id.levelProgressText)
-        levelProgressBar = findViewById(R.id.levelProgressBar)
-
 
     private fun bindViews() {
         pointsBalanceText = findViewById(R.id.pointsBalanceText)
@@ -126,85 +104,6 @@ class RewardsActivity : AppCompatActivity() {
     private fun setupListeners() {
         findViewById<View>(R.id.backButton)?.setOnClickListener { finish() }
 
-        val redeemBtn1 = findViewById<Button>(R.id.redeemButton1)
-        val redeemBtn2 = findViewById<Button>(R.id.redeemButton2)
-        val redeemBtn3 = findViewById<Button>(R.id.redeemButton3)
-
-        redeemBtn1?.setSingleClickListener {
-            redeem(500, "$5 Coffee Shop Voucher", redeemBtn1)
-        }
-        redeemBtn2?.setSingleClickListener {
-            redeem(800, "10% Off Eco Grocery", redeemBtn2)
-        }
-        redeemBtn3?.setSingleClickListener {
-            redeem(1000, "Plant a Tree", redeemBtn3)
-        }
-
-        loadRewardAccount()
-        setupBottomNav()
-    }
-
-    private fun loadRewardAccount() {
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: UserManager.getUserProfile(this).uid
-
-        if (currentUid.isEmpty()) return
-
-        rewardsRepository.fetchRewardAccount(currentUid) { result ->
-            when (result) {
-                is ResultState.Success -> {
-                    val account = result.data
-                    if (account.pointsBalance > 0) {
-                        points = account.pointsBalance
-                        pointsText.text = "$points pts"
-                    }
-                }
-                else -> {}
-            }
-        }
-    }
-
-    private fun redeem(cost: Int, voucherName: String, btn: Button) {
-        if (points < cost) {
-            Toast.makeText(this, "Insufficient points balance!", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: UserManager.getUserProfile(this).uid
-
-        // Lock button to prevent double redemption
-        btn.isEnabled = false
-        val originalText = btn.text.toString()
-        btn.text = "Redeeming..."
-
-        val log = RedemptionLog(
-            userId = currentUid,
-            pointsUsed = cost,
-            voucherCode = voucherName,
-            status = "Redeemed",
-            redeemedAt = System.currentTimeMillis()
-        )
-
-        rewardsRepository.redeemReward(log) { result ->
-            when (result) {
-                is ResultState.Success -> {
-                    points -= cost
-                    pointsText.text = "$points pts"
-                    btn.isEnabled = false
-                    btn.text = "Redeemed"
-                    Toast.makeText(this, "Successfully redeemed $voucherName!", Toast.LENGTH_SHORT).show()
-                }
-                is ResultState.Error -> {
-                    // Unlock button on failure
-                    btn.isEnabled = true
-                    btn.text = originalText
-                    Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
-                }
-                is ResultState.Loading -> {
-                    btn.isEnabled = false
-                }
-            }
         // Filter Tabs
         filterAllBtn.setOnClickListener { setFilter("all") }
         filterEarnedBtn.setOnClickListener { setFilter("earned") }
@@ -226,72 +125,9 @@ class RewardsActivity : AppCompatActivity() {
         redeemButton4.setOnClickListener {
             val item = getItemByPosition(3, "$15 Eco Store Gift Card", 1500)
             initiateRewardRedemption(item)
-        filterAllBtn.setOnClickListener {
-            setFilter("all")
-        }
-        filterEarnedBtn.setOnClickListener {
-            setFilter("earned")
-        }
-        filterRedeemedBtn.setOnClickListener {
-            setFilter("redeemed")
         }
 
-        // Voucher Redeem Actions
-        redeemButton1.setOnClickListener {
-            redeemVoucher(
-                RewardItem(
-                    rewardItemId = "item_1",
-                    itemName = "$5 Coffee Shop Voucher",
-                    description = "Valid at participating organic coffee outlets.",
-                    pointsCost = 500
-                )
-            )
-        }
-        redeemButton2.setOnClickListener {
-            redeemVoucher(
-                RewardItem(
-                    rewardItemId = "item_2",
-                    itemName = "10% Off Eco Grocery",
-                    description = "Discount code for sustainable food products.",
-                    pointsCost = 800
-                )
-            )
-        }
-        redeemButton3.setOnClickListener {
-            redeemVoucher(
-                RewardItem(
-                    rewardItemId = "item_3",
-                    itemName = "Plant a Tree in Your Name",
-                    description = "We will plant a native tree to offset carbon.",
-                    pointsCost = 1000
-                )
-            )
-        }
-        redeemButton4.setOnClickListener {
-            redeemVoucher(
-                RewardItem(
-                    rewardItemId = "item_4",
-                    itemName = "$15 Eco Store Gift Card",
-                    description = "Redeemable online at EcoMart.",
-                    pointsCost = 1500
-                )
-            )
-        }
-    }
-
-    private fun setupBottomNav() {
-        findViewById<View>(R.id.navHome)?.setOnClickListener {
-            startActivity(Intent(this, HomeActivity::class.java))
-        }
-        findViewById<View>(R.id.navScan)?.setOnClickListener {
-            startActivity(Intent(this, ScanWasteActivity::class.java))
-        }
-        findViewById<View>(R.id.navPickups)?.setOnClickListener {
-            startActivity(Intent(this, MyPickupsActivity::class.java))
-        }
-        findViewById<View>(R.id.navProfile)?.setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
+        setupBottomNav()
     }
 
     private fun getItemByPosition(index: Int, defaultName: String, defaultCost: Int): RewardItem {
@@ -325,8 +161,7 @@ class RewardsActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Fetch Reward Account Balance
-        // 1. Fetch Reward Account
+        // 2. Fetch Reward Account
         rewardsRepository.fetchRewardAccount(userId, this) { result ->
             when (result) {
                 is ResultState.Success -> {
@@ -338,7 +173,6 @@ class RewardsActivity : AppCompatActivity() {
         }
 
         // 3. Fetch User Pickups & Sync Completed Pickups for Points
-        // 2. Fetch User Pickups & Sync Completed Pickups for Points
         pickupRepository.fetchPickupsForUser(userId) { result ->
             if (result is ResultState.Success) {
                 val pickups = result.data
@@ -445,19 +279,6 @@ class RewardsActivity : AppCompatActivity() {
             btn.isEnabled = !isProcessingRedemption
             btn.text = "Redeem"
             btn.alpha = if (isProcessingRedemption) 0.5f else 1.0f
-        // Update button states based on points balance
-        updateButtonState(redeemButton1, account.pointsBalance >= 500)
-        updateButtonState(redeemButton2, account.pointsBalance >= 800)
-        updateButtonState(redeemButton3, account.pointsBalance >= 1000)
-        updateButtonState(redeemButton4, account.pointsBalance >= 1500)
-    }
-
-    private fun updateButtonState(btn: Button, isEnabled: Boolean) {
-        btn.isEnabled = isEnabled
-        if (isEnabled) {
-            btn.alpha = 1.0f
-        } else {
-            btn.alpha = 0.5f
         }
     }
 
@@ -557,7 +378,7 @@ class RewardsActivity : AppCompatActivity() {
 
             val dateStr = try {
                 dateFormat.format(Date(tx.createdAt))
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 ""
             }
 
@@ -651,23 +472,6 @@ class RewardsActivity : AppCompatActivity() {
                     updateAccountUi(currentAccount)
 
                     // Reload transactions list
-    private fun redeemVoucher(item: RewardItem) {
-        val userId = getUserId()
-
-        if (currentAccount.pointsBalance < item.pointsCost) {
-            val missing = item.pointsCost - currentAccount.pointsBalance
-            Toast.makeText(this, "Insufficient points! Need $missing more points.", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        rewardsRepository.redeemReward(userId, item, this) { result ->
-            when (result) {
-                is ResultState.Success -> {
-                    currentAccount = result.data
-                    updateAccountUi(currentAccount)
-                    Toast.makeText(this, "Successfully redeemed ${item.itemName}!", Toast.LENGTH_LONG).show()
-
-                    // Reload transactions to include the new redemption activity
                     rewardsRepository.fetchPointsTransactions(userId, this) { txResult ->
                         if (txResult is ResultState.Success) {
                             allTransactions = txResult.data
@@ -685,9 +489,6 @@ class RewardsActivity : AppCompatActivity() {
                         .setMessage(result.message ?: "Failed to process reward redemption. Please try again.")
                         .setPositiveButton("OK", null)
                         .show()
-                }
-                is ResultState.Error -> {
-                    Toast.makeText(this, result.message ?: "Redemption failed.", Toast.LENGTH_SHORT).show()
                 }
                 is ResultState.Loading -> {}
             }
@@ -720,6 +521,21 @@ class RewardsActivity : AppCompatActivity() {
         val clip = ClipData.newPlainText(label, text)
         clipboard.setPrimaryClip(clip)
         Toast.makeText(this, "Voucher code copied to clipboard!", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun setupBottomNav() {
+        findViewById<View>(R.id.navHome)?.setOnClickListener {
+            startActivity(Intent(this, HomeActivity::class.java))
+        }
+        findViewById<View>(R.id.navScan)?.setOnClickListener {
+            startActivity(Intent(this, ScanWasteActivity::class.java))
+        }
+        findViewById<View>(R.id.navPickups)?.setOnClickListener {
+            startActivity(Intent(this, MyPickupsActivity::class.java))
+        }
+        findViewById<View>(R.id.navProfile)?.setOnClickListener {
+            startActivity(Intent(this, ProfileActivity::class.java))
+        }
     }
 
     private fun dpToPx(dp: Int): Int {
