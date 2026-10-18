@@ -82,8 +82,7 @@ class NotificationsActivity : AppCompatActivity() {
     }
 
     private fun loadNotifications() {
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: UserManager.getUserProfile(this).uid
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
 
         if (currentUid.isEmpty()) {
             showEmptyState()
@@ -103,16 +102,6 @@ class NotificationsActivity : AppCompatActivity() {
                     notificationList.addAll(result.data)
 
                     if (notificationList.isEmpty()) {
-                        // If no remote notifications found, create sample initial notifications for demo
-                        val sampleList = getSampleNotifications(currentUid)
-                        notificationList.addAll(sampleList)
-                        // Save sample notifications to Firestore so they persist
-                        for (sample in sampleList) {
-                            notificationRepository.addNotification(sample)
-                        }
-                    }
-
-                    if (notificationList.isEmpty()) {
                         showEmptyState()
                     } else {
                         showNotificationsList()
@@ -120,12 +109,6 @@ class NotificationsActivity : AppCompatActivity() {
                 }
                 is ResultState.Error -> {
                     progressBar.visibility = View.GONE
-                    // On error/offline, check if local list empty, load sample fallback
-                    if (notificationList.isEmpty()) {
-                        val sampleList = getSampleNotifications(currentUid)
-                        notificationList.clear()
-                        notificationList.addAll(sampleList)
-                    }
                     if (notificationList.isEmpty()) {
                         showEmptyState()
                     } else {
@@ -149,8 +132,7 @@ class NotificationsActivity : AppCompatActivity() {
     }
 
     private fun clearNotifications() {
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: UserManager.getUserProfile(this).uid
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
 
         notificationRepository.clearAllNotifications(currentUid) { result ->
             when (result) {
@@ -166,10 +148,7 @@ class NotificationsActivity : AppCompatActivity() {
                 }
                 is ResultState.Error -> {
                     progressBar.visibility = View.GONE
-                    notificationList.clear()
-                    adapter.updateNotifications(notificationList)
-                    showEmptyState()
-                    Toast.makeText(this, "Notifications cleared", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -186,39 +165,4 @@ class NotificationsActivity : AppCompatActivity() {
         adapter.updateNotifications(notificationList)
     }
 
-    private fun getSampleNotifications(userId: String): List<NotificationModel> {
-        val now = System.currentTimeMillis()
-        return listOf(
-            NotificationModel(
-                notificationId = "sample_1",
-                userId = userId,
-                title = "Pickup Scheduled",
-                message = "Your recycling pickup has been scheduled successfully.",
-                type = NotificationModel.TYPE_PICKUP_CONFIRMATION,
-                sentAt = now - 600000,
-                createdAt = now - 600000,
-                isRead = false
-            ),
-            NotificationModel(
-                notificationId = "sample_2",
-                userId = userId,
-                title = "Points Earned!",
-                message = "+10 points added for Plastic Bottle scan.",
-                type = NotificationModel.TYPE_REWARD,
-                sentAt = now - 7200000,
-                createdAt = now - 7200000,
-                isRead = false
-            ),
-            NotificationModel(
-                notificationId = "sample_3",
-                userId = userId,
-                title = "Eco Milestone Reached",
-                message = "Congratulations! You reached Level 2 Eco Champion.",
-                type = NotificationModel.TYPE_STATUS_CHANGE,
-                sentAt = now - 86400000,
-                createdAt = now - 86400000,
-                isRead = true
-            )
-        )
-    }
 }

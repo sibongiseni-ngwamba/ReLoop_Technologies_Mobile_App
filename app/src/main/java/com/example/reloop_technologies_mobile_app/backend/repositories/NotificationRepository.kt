@@ -17,9 +17,15 @@ class NotificationRepository(
             .whereEqualTo("userId", userId)
             .get()
             .addOnSuccessListener { snapshot ->
-                val list = snapshot.toObjects(NotificationModel::class.java)
-                    .sortedByDescending { it.createdAt.coerceAtLeast(it.sentAt) }
-                onResult(ResultState.Success(list))
+                try {
+                    val seededIds = setOf("sample_1", "sample_2", "sample_3")
+                    val list = snapshot.toObjects(NotificationModel::class.java)
+                        .filterNot { it.notificationId in seededIds }
+                        .sortedByDescending { it.createdAt.coerceAtLeast(it.sentAt) }
+                    onResult(ResultState.Success(list))
+                } catch (exception: RuntimeException) {
+                    onResult(ResultState.Error(exception = exception, message = "Could not read notifications."))
+                }
             }
             .addOnFailureListener { exception ->
                 onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))

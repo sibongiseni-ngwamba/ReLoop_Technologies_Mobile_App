@@ -56,7 +56,7 @@ class SchedulePickupActivity : AppCompatActivity() {
         submitButton = findViewById(R.id.submitButton)
         progressBar = findViewById(R.id.scheduleProgressBar)
 
-        val userProfile = UserManager.getUserProfile(this)
+        val userProfile = UserManager.getUserProfile(this, FirebaseAuth.getInstance().currentUser?.uid.orEmpty())
         if (userProfile.address.isNotEmpty()) {
             addressInput.setText(userProfile.address)
         }
@@ -155,9 +155,7 @@ class SchedulePickupActivity : AppCompatActivity() {
             return
         }
 
-        val userProfile = UserManager.getUserProfile(this)
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: userProfile.uid
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
 
         if (currentUid.isEmpty()) {
             Toast.makeText(this, "Session expired. Please log in again.", Toast.LENGTH_LONG).show()

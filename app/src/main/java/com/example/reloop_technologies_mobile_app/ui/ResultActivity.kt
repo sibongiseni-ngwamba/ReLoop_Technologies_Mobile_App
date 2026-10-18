@@ -15,7 +15,7 @@ import com.example.reloop_technologies_mobile_app.backend.models.PointsTransacti
 import com.example.reloop_technologies_mobile_app.backend.models.WasteLog
 import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.WasteScanRepository
-import com.example.reloop_technologies_mobile_app.database.UserManager
+import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -42,6 +42,7 @@ class ResultActivity : AppCompatActivity() {
     private var confidenceScore = 0.95
     private var estimatedWeight = 0.2
     private var isRecyclable = true
+    private var isSaving = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -135,8 +136,16 @@ class ResultActivity : AppCompatActivity() {
     }
 
     private fun saveScanResult() {
-        val userProfile = UserManager.getUserProfile(this)
-        val userId = userProfile.uid.ifEmpty { "anonymous_user" }
+        if (isSaving) return
+        val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+        if (userId.isEmpty()) {
+            Toast.makeText(this, "Session expired. Please log in again.", Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
+        isSaving = true
+        saveResultButton.isEnabled = false
 
         val wasteLog = WasteLog(
             userId = userId,
@@ -149,31 +158,51 @@ class ResultActivity : AppCompatActivity() {
         )
 
         wasteScanRepository.logWasteScan(wasteLog) { result ->
-            val logId = if (result is ResultState.Success) result.data else wasteLog.wasteLogId
+            if (result is ResultState.Error) {
+                isSaving = false
+                saveResultButton.isEnabled = true
+                Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
+                return@logWasteScan
+            }
+            if (result !is ResultState.Success) return@logWasteScan
+            val logId = result.data
 
             // Award +10 points for scanning waste
-            rewardsRepository.fetchRewardAccount(userId, this) { accResult ->
-                val currentAccount = if (accResult is ResultState.Success) accResult.data else com.example.reloop_technologies_mobile_app.backend.models.RewardAccount(userId = userId)
+            rewardsRepository.fetchRewardAccount(userId) { accResult ->
+                if (accResult is ResultState.Error) {
+                    Toast.makeText(this, "Scan saved, but points could not be loaded: ${accResult.message}", Toast.LENGTH_LONG).show()
+                    startActivity(Intent(this, HomeActivity::class.java))
+                    finishAffinity()
+                    return@fetchRewardAccount
+                }
+                if (accResult !is ResultState.Success) return@fetchRewardAccount
+                val currentAccount = accResult.data
                 val updatedAccount = currentAccount.copy(
                     pointsBalance = currentAccount.pointsBalance + 10,
                     totalEarned = currentAccount.totalEarned + 10,
                     lastUpdated = System.currentTimeMillis()
                 )
-                rewardsRepository.saveRewardAccount(updatedAccount, this)
-
-                val tx = PointsTransaction(
-                    userId = userId,
-                    transactionType = "earn",
-                    points = 10,
-                    relatedId = logId,
-                    description = "AI Waste Scan Bonus: $predictedCategory",
-                    createdAt = System.currentTimeMillis()
-                )
-                rewardsRepository.addPointsTransaction(tx, this)
-
-                Toast.makeText(this, "Scan saved successfully! +10 pts added.", Toast.LENGTH_SHORT).show()
-                startActivity(Intent(this, HomeActivity::class.java))
-                finishAffinity()
+                rewardsRepository.saveRewardAccount(updatedAccount, this) { saveResult ->
+                    if (saveResult is ResultState.Error) {
+                        Toast.makeText(this, "Scan saved, but points could not be updated: ${saveResult.message}", Toast.LENGTH_LONG).show()
+                        startActivity(Intent(this, HomeActivity::class.java))
+                        finishAffinity()
+                        return@saveRewardAccount
+                    }
+                    if (saveResult !is ResultState.Success) return@saveRewardAccount
+                    val tx = PointsTransaction(
+                        userId = userId,
+                        transactionType = "earn",
+                        points = 10,
+                        relatedId = logId,
+                        description = "AI Waste Scan Bonus: $predictedCategory",
+                        createdAt = System.currentTimeMillis()
+                    )
+                    rewardsRepository.addPointsTransaction(tx, this)
+                    Toast.makeText(this, "Scan saved successfully! +10 pts added.", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this, HomeActivity::class.java))
+                    finishAffinity()
+                }
             }
         }
     }

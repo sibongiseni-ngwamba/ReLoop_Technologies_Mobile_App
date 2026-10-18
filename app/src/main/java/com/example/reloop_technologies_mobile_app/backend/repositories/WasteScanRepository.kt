@@ -8,6 +8,24 @@ import com.example.reloop_technologies_mobile_app.backend.services.FirestoreServ
 class WasteScanRepository(
     private val firestoreService: FirestoreService = FirestoreService()
 ) {
+    fun fetchWasteScansForUser(userId: String, onResult: (ResultState<List<WasteLog>>) -> Unit) {
+        if (userId.isBlank()) {
+            onResult(ResultState.Error(message = "User ID is empty."))
+            return
+        }
+        firestoreService.db.collection("wasteLogs").whereEqualTo("userId", userId).get()
+            .addOnSuccessListener { snapshot ->
+                try {
+                    onResult(ResultState.Success(snapshot.toObjects(WasteLog::class.java)))
+                } catch (exception: RuntimeException) {
+                    onResult(ResultState.Error(exception = exception, message = "Could not read scan records."))
+                }
+            }
+            .addOnFailureListener { exception ->
+                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
+            }
+    }
+
     fun logWasteScan(wasteLog: WasteLog, onResult: (ResultState<String>) -> Unit) {
         onResult(ResultState.Loading)
         val docRef = firestoreService.db.collection("wasteLogs").document()

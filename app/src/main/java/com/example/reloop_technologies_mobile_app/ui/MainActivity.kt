@@ -12,31 +12,27 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
-import com.example.reloop_technologies_mobile_app.database.UserData
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
-import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var firebaseAuth: FirebaseAuth
-    private lateinit var firestore: FirebaseFirestore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         firebaseAuth = FirebaseAuth.getInstance()
-        firestore = FirebaseFirestore.getInstance()
-
-        // Session Restoration: Check if user is already signed in
-        if (firebaseAuth.currentUser != null || UserManager.isLoggedIn(this)) {
+        // Firebase Auth is the source of truth for the session. Preferences only cache its profile.
+        if (firebaseAuth.currentUser != null) {
             startActivity(Intent(this, HomeActivity::class.java))
             finish()
             return
         }
+        UserManager.logout(this)
 
         setContentView(R.layout.activity_main)
 
@@ -87,45 +83,21 @@ class MainActivity : AppCompatActivity() {
             firebaseAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
-                        val uid = firebaseAuth.currentUser?.uid ?: ""
-
-                        // Retrieve profile from Firestore to populate UserManager
-                        firestore.collection("users").document(uid).get()
-                            .addOnSuccessListener { document ->
-                                if (document.exists()) {
-                                    val userData = UserData(
-                                        uid = uid,
-                                        name = document.getString("name") ?: "",
-                                        email = document.getString("email") ?: email,
-                                        phone = document.getString("phone") ?: "",
-                                        address = document.getString("address") ?: ""
-                                    )
-                                    UserManager.saveUserProfile(this, userData)
-                                } else {
-                                    val userData = UserData(
-                                        uid = uid,
-                                        name = firebaseAuth.currentUser?.displayName ?: "Resident",
-                                        email = email
-                                    )
-                                    UserManager.saveUserProfile(this, userData)
-                                }
-                                progressBar?.visibility = View.GONE
-                                Toast.makeText(this, "Login successful! Welcome back.", Toast.LENGTH_SHORT).show()
-                                startActivity(Intent(this, HomeActivity::class.java))
-                                finishAffinity()
-                            }
-                            .addOnFailureListener {
-                                val userData = UserData(
-                                    uid = uid,
-                                    name = firebaseAuth.currentUser?.displayName ?: "Resident",
-                                    email = email
-                                )
-                                UserManager.saveUserProfile(this, userData)
-                                progressBar?.visibility = View.GONE
-                                Toast.makeText(this, "Login successful! Welcome back.", Toast.LENGTH_SHORT).show()
-                                startActivity(Intent(this, HomeActivity::class.java))
-                                finishAffinity()
-                            }
+                        val user = firebaseAuth.currentUser
+                        if (user == null) {
+                            progressBar?.visibility = View.GONE
+                            loginButton.isEnabled = true
+                            Toast.makeText(this, "Login session unavailable. Please try again.", Toast.LENGTH_LONG).show()
+                            return@addOnCompleteListener
+                        }
+                        val previous = UserManager.getUserProfile(this, user.uid)
+                        UserManager.saveUserProfile(this, previous.copy(
+                            name = previous.name.ifEmpty { user.displayName.orEmpty() },
+                            email = user.email ?: email
+                        ))
+                        progressBar?.visibility = View.GONE
+                        startActivity(Intent(this, HomeActivity::class.java))
+                        finishAffinity()
                     } else {
                         progressBar?.visibility = View.GONE
                         loginButton.isEnabled = true

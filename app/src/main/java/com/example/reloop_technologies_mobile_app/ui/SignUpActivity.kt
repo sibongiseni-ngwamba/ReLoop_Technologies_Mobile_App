@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
+import com.example.reloop_technologies_mobile_app.backend.models.UserModel
 import com.example.reloop_technologies_mobile_app.database.UserData
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
@@ -108,7 +109,13 @@ class SignUpActivity : AppCompatActivity() {
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         val firebaseUser = firebaseAuth.currentUser
-                        val uid = firebaseUser?.uid ?: ""
+                        val uid = firebaseUser?.uid
+                        if (uid.isNullOrEmpty()) {
+                            progressBar?.visibility = View.GONE
+                            signUpButton.isEnabled = true
+                            Toast.makeText(this, "Account created, but the session is unavailable. Please log in again.", Toast.LENGTH_LONG).show()
+                            return@addOnCompleteListener
+                        }
 
                         // Update Display Name
                         val profileUpdates = UserProfileChangeRequest.Builder()
@@ -129,16 +136,17 @@ class SignUpActivity : AppCompatActivity() {
                         UserManager.saveUserProfile(this, userData)
 
                         // Save to Firestore
-                        val userMap = hashMapOf(
-                            "uid" to uid,
-                            "name" to name,
-                            "email" to email,
-                            "phone" to phone,
-                            "address" to address,
-                            "createdAt" to System.currentTimeMillis()
+                        val nameParts = name.split(Regex("\\s+"), limit = 2)
+                        val userProfile = UserModel(
+                            userId = uid,
+                            firstName = nameParts.first(),
+                            lastName = nameParts.getOrElse(1) { "" },
+                            email = email,
+                            phoneNumber = phone,
+                            address = address
                         )
 
-                        firestore.collection("users").document(uid).set(userMap)
+                        firestore.collection("users").document(uid).set(userProfile)
 
                         progressBar?.visibility = View.GONE
                         Toast.makeText(this, "Account created successfully! Welcome $name.", Toast.LENGTH_LONG).show()

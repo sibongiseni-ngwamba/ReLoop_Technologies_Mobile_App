@@ -2,7 +2,6 @@ package com.example.reloop_technologies_mobile_app.backend.services
 
 import com.example.reloop_technologies_mobile_app.backend.models.NotificationModel
 import com.example.reloop_technologies_mobile_app.backend.repositories.NotificationRepository
-import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -30,8 +29,7 @@ class ReLoopMessagingService : FirebaseMessagingService() {
         NotificationHelper.showNotification(applicationContext, title, body)
 
         // Save into repository for current user if logged in
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: UserManager.getUserProfile(applicationContext).uid
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
 
         if (currentUid.isNotEmpty()) {
             val notification = NotificationModel(
@@ -51,8 +49,7 @@ class ReLoopMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
 
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-            ?: UserManager.getUserProfile(applicationContext).uid
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
 
         if (currentUid.isNotEmpty()) {
             FirebaseFirestore.getInstance()

@@ -2,8 +2,8 @@ package com.example.reloop_technologies_mobile_app.backend.models
 
 data class RewardAccount(
     val userId: String = "",
-    val pointsBalance: Int = 1200,
-    val totalEarned: Int = 1200,
+    val pointsBalance: Int = 0,
+    val totalEarned: Int = 0,
     val totalRedeemed: Int = 0,
     val lastUpdated: Long = System.currentTimeMillis()
 )
