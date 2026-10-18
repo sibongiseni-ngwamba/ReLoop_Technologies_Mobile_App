@@ -45,6 +45,7 @@ class RewardsActivity : AppCompatActivity() {
     private var catalogueItems: List<RewardItem> = emptyList()
     private var currentFilter: String = "all" // "all", "earned", "redeemed"
     private var isProcessingRedemption: Boolean = false
+    private var currentFilter: String = "all" // "all", "earned", "redeemed"
 
     private lateinit var pointsBalanceText: TextView
     private lateinit var levelBadgeText: TextView
@@ -78,6 +79,15 @@ class RewardsActivity : AppCompatActivity() {
         super.onResume()
         loadRewardsData()
     }
+
+    private fun bindViews() {
+        pointsBalanceText = findViewById(R.id.pointsBalanceText)
+        levelBadgeText = findViewById(R.id.levelBadgeText)
+        totalEarnedText = findViewById(R.id.totalEarnedText)
+        totalRedeemedText = findViewById(R.id.totalRedeemedText)
+        levelProgressText = findViewById(R.id.levelProgressText)
+        levelProgressBar = findViewById(R.id.levelProgressBar)
+
 
     private fun bindViews() {
         pointsBalanceText = findViewById(R.id.pointsBalanceText)
@@ -125,6 +135,56 @@ class RewardsActivity : AppCompatActivity() {
         redeemButton4.setOnClickListener {
             val item = getItemByPosition(3, "$15 Eco Store Gift Card", 1500)
             initiateRewardRedemption(item)
+        filterAllBtn.setOnClickListener {
+            setFilter("all")
+        }
+        filterEarnedBtn.setOnClickListener {
+            setFilter("earned")
+        }
+        filterRedeemedBtn.setOnClickListener {
+            setFilter("redeemed")
+        }
+
+        // Voucher Redeem Actions
+        redeemButton1.setOnClickListener {
+            redeemVoucher(
+                RewardItem(
+                    rewardItemId = "item_1",
+                    itemName = "$5 Coffee Shop Voucher",
+                    description = "Valid at participating organic coffee outlets.",
+                    pointsCost = 500
+                )
+            )
+        }
+        redeemButton2.setOnClickListener {
+            redeemVoucher(
+                RewardItem(
+                    rewardItemId = "item_2",
+                    itemName = "10% Off Eco Grocery",
+                    description = "Discount code for sustainable food products.",
+                    pointsCost = 800
+                )
+            )
+        }
+        redeemButton3.setOnClickListener {
+            redeemVoucher(
+                RewardItem(
+                    rewardItemId = "item_3",
+                    itemName = "Plant a Tree in Your Name",
+                    description = "We will plant a native tree to offset carbon.",
+                    pointsCost = 1000
+                )
+            )
+        }
+        redeemButton4.setOnClickListener {
+            redeemVoucher(
+                RewardItem(
+                    rewardItemId = "item_4",
+                    itemName = "$15 Eco Store Gift Card",
+                    description = "Redeemable online at EcoMart.",
+                    pointsCost = 1500
+                )
+            )
         }
 
         // Bottom Nav
@@ -174,6 +234,7 @@ class RewardsActivity : AppCompatActivity() {
         }
 
         // 2. Fetch Reward Account Balance
+        // 1. Fetch Reward Account
         rewardsRepository.fetchRewardAccount(userId, this) { result ->
             when (result) {
                 is ResultState.Success -> {
@@ -185,6 +246,7 @@ class RewardsActivity : AppCompatActivity() {
         }
 
         // 3. Fetch User Pickups & Sync Completed Pickups for Points
+        // 2. Fetch User Pickups & Sync Completed Pickups for Points
         pickupRepository.fetchPickupsForUser(userId) { result ->
             if (result is ResultState.Success) {
                 val pickups = result.data
@@ -291,6 +353,19 @@ class RewardsActivity : AppCompatActivity() {
             btn.isEnabled = !isProcessingRedemption
             btn.text = "Redeem"
             btn.alpha = if (isProcessingRedemption) 0.5f else 1.0f
+        // Update button states based on points balance
+        updateButtonState(redeemButton1, account.pointsBalance >= 500)
+        updateButtonState(redeemButton2, account.pointsBalance >= 800)
+        updateButtonState(redeemButton3, account.pointsBalance >= 1000)
+        updateButtonState(redeemButton4, account.pointsBalance >= 1500)
+    }
+
+    private fun updateButtonState(btn: Button, isEnabled: Boolean) {
+        btn.isEnabled = isEnabled
+        if (isEnabled) {
+            btn.alpha = 1.0f
+        } else {
+            btn.alpha = 0.5f
         }
     }
 
@@ -484,6 +559,23 @@ class RewardsActivity : AppCompatActivity() {
                     updateAccountUi(currentAccount)
 
                     // Reload transactions list
+    private fun redeemVoucher(item: RewardItem) {
+        val userId = getUserId()
+
+        if (currentAccount.pointsBalance < item.pointsCost) {
+            val missing = item.pointsCost - currentAccount.pointsBalance
+            Toast.makeText(this, "Insufficient points! Need $missing more points.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        rewardsRepository.redeemReward(userId, item, this) { result ->
+            when (result) {
+                is ResultState.Success -> {
+                    currentAccount = result.data
+                    updateAccountUi(currentAccount)
+                    Toast.makeText(this, "Successfully redeemed ${item.itemName}!", Toast.LENGTH_LONG).show()
+
+                    // Reload transactions to include the new redemption activity
                     rewardsRepository.fetchPointsTransactions(userId, this) { txResult ->
                         if (txResult is ResultState.Success) {
                             allTransactions = txResult.data
@@ -501,6 +593,9 @@ class RewardsActivity : AppCompatActivity() {
                         .setMessage(result.message ?: "Failed to process reward redemption. Please try again.")
                         .setPositiveButton("OK", null)
                         .show()
+                }
+                is ResultState.Error -> {
+                    Toast.makeText(this, result.message ?: "Redemption failed.", Toast.LENGTH_SHORT).show()
                 }
                 is ResultState.Loading -> {}
             }

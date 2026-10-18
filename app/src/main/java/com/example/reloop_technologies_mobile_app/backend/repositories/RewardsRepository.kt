@@ -388,6 +388,7 @@ class RewardsRepository(
         context: Context? = null,
         onResult: (ResultState<List<RewardItem>>) -> Unit
     ) {
+    fun fetchAvailableRewardItems(onResult: (ResultState<List<RewardItem>>) -> Unit) {
         onResult(ResultState.Loading)
         firestoreService.db.collection("rewardItems")
             .whereEqualTo("isActive", true)
@@ -403,6 +404,100 @@ class RewardsRepository(
             .addOnFailureListener {
                 onResult(ResultState.Success(getDefaultRewardItems()))
             }
+    }
+
+    fun getDefaultRewardItems(): List<RewardItem> {
+        return listOf(
+            RewardItem(
+                rewardItemId = "item_1",
+                itemName = "$5 Coffee Shop Voucher",
+                description = "Valid at participating organic coffee outlets.",
+                pointsCost = 500,
+                isActive = true
+            ),
+            RewardItem(
+                rewardItemId = "item_2",
+                itemName = "10% Off Eco Grocery",
+                description = "Discount code for sustainable food products.",
+                pointsCost = 800,
+                isActive = true
+            ),
+            RewardItem(
+                rewardItemId = "item_3",
+                itemName = "Plant a Tree in Your Name",
+                description = "We will plant a native tree to offset carbon.",
+                pointsCost = 1000,
+                isActive = true
+            ),
+            RewardItem(
+                rewardItemId = "item_4",
+                itemName = "$15 Eco Store Gift Card",
+                description = "Redeemable online at EcoMart.",
+                pointsCost = 1500,
+                isActive = true
+            )
+        )
+    }
+
+    fun redeemReward(
+        userId: String,
+        rewardItem: RewardItem,
+        context: Context? = null,
+        onResult: (ResultState<RewardAccount>) -> Unit
+    ) {
+        if (userId.isEmpty()) {
+            onResult(ResultState.Error(message = "User ID is empty."))
+            return
+        }
+
+        fetchRewardAccount(userId, context) { accountResult ->
+            if (accountResult !is ResultState.Success) {
+                onResult(ResultState.Error(message = "Failed to retrieve reward account."))
+                return@fetchRewardAccount
+            }
+
+            val account = accountResult.data
+            if (account.pointsBalance < rewardItem.pointsCost) {
+                onResult(ResultState.Error(message = "Insufficient points balance!"))
+                return@fetchRewardAccount
+            }
+
+            val updatedAccount = account.copy(
+                pointsBalance = account.pointsBalance - rewardItem.pointsCost,
+                totalRedeemed = account.totalRedeemed + rewardItem.pointsCost,
+                lastUpdated = System.currentTimeMillis()
+            )
+
+            // Save updated account
+            saveRewardAccount(updatedAccount, context)
+
+            // Create RedemptionLog
+            val logRef = firestoreService.db.collection("redemptionLogs").document()
+            val redemptionLog = RedemptionLog(
+                redemptionId = logRef.id,
+                userId = userId,
+                rewardItemId = rewardItem.rewardItemId,
+                pointsUsed = rewardItem.pointsCost,
+                voucherCode = "RELOOP-" + (100000..999999).random(),
+                status = "Redeemed",
+                redeemedAt = System.currentTimeMillis(),
+                createdAt = System.currentTimeMillis()
+            )
+            logRef.set(redemptionLog)
+
+            // Create PointsTransaction
+            val tx = PointsTransaction(
+                userId = userId,
+                transactionType = "redeem",
+                points = -rewardItem.pointsCost,
+                relatedId = redemptionLog.redemptionId,
+                description = "Redeemed: ${rewardItem.itemName}",
+                createdAt = System.currentTimeMillis()
+            )
+            addPointsTransaction(tx, context) {}
+
+            onResult(ResultState.Success(updatedAccount))
+        }
     }
 
     fun getDefaultRewardItems(): List<RewardItem> {
@@ -565,6 +660,7 @@ class RewardsRepository(
         }
     }
 
+    // Overload for backward compatibility
     fun redeemReward(redemptionLog: RedemptionLog, onResult: (ResultState<String>) -> Unit) {
         onResult(ResultState.Loading)
         val docRef = firestoreService.db.collection("redemptionLogs").document()
