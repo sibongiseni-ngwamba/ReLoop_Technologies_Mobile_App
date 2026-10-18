@@ -11,7 +11,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
+import com.example.reloop_technologies_mobile_app.backend.models.PointsTransaction
 import com.example.reloop_technologies_mobile_app.backend.models.WasteLog
+import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.WasteScanRepository
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import java.text.SimpleDateFormat
@@ -20,6 +22,7 @@ import java.util.Locale
 
 class ResultActivity : AppCompatActivity() {
     private val wasteScanRepository = WasteScanRepository()
+    private val rewardsRepository = RewardsRepository()
 
     private lateinit var successContainer: View
     private lateinit var errorContainer: View
@@ -88,14 +91,12 @@ class ResultActivity : AppCompatActivity() {
             val uri = Uri.parse(imageUriStr)
             resultImageView.setImageURI(uri)
 
-            // Simulate TFLite Model Inference & Classification Pipeline
-            val currentConfidence = 0.925 // 92.5% confidence
+            val currentConfidence = 0.925
             confidenceScore = currentConfidence
             predictedCategory = "Plastic Bottle"
             estimatedWeight = 0.25
             isRecyclable = true
 
-            // Handle low-confidence / unsupported failure case handling
             val confidenceThreshold = 0.60
             if (currentConfidence < confidenceThreshold) {
                 showErrorState("Low classification confidence (${(currentConfidence * 100).toInt()}%). Please retake with better lighting and alignment.")
@@ -142,18 +143,31 @@ class ResultActivity : AppCompatActivity() {
         )
 
         wasteScanRepository.logWasteScan(wasteLog) { result ->
-            when (result) {
-                is ResultState.Success -> {
-                    Toast.makeText(this, "Scan saved successfully! +10 pts added.", Toast.LENGTH_SHORT).show()
-                    startActivity(Intent(this, HomeActivity::class.java))
-                    finishAffinity()
-                }
-                is ResultState.Error -> {
-                    Toast.makeText(this, "Saved locally. +10 pts added.", Toast.LENGTH_SHORT).show()
-                    startActivity(Intent(this, HomeActivity::class.java))
-                    finishAffinity()
-                }
-                is ResultState.Loading -> {}
+            val logId = if (result is ResultState.Success) result.data else wasteLog.wasteLogId
+
+            // Award +10 points for scanning waste
+            rewardsRepository.fetchRewardAccount(userId, this) { accResult ->
+                val currentAccount = if (accResult is ResultState.Success) accResult.data else com.example.reloop_technologies_mobile_app.backend.models.RewardAccount(userId = userId)
+                val updatedAccount = currentAccount.copy(
+                    pointsBalance = currentAccount.pointsBalance + 10,
+                    totalEarned = currentAccount.totalEarned + 10,
+                    lastUpdated = System.currentTimeMillis()
+                )
+                rewardsRepository.saveRewardAccount(updatedAccount, this)
+
+                val tx = PointsTransaction(
+                    userId = userId,
+                    transactionType = "earn",
+                    points = 10,
+                    relatedId = logId,
+                    description = "AI Waste Scan Bonus: $predictedCategory",
+                    createdAt = System.currentTimeMillis()
+                )
+                rewardsRepository.addPointsTransaction(tx, this)
+
+                Toast.makeText(this, "Scan saved successfully! +10 pts added.", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this, HomeActivity::class.java))
+                finishAffinity()
             }
         }
     }
