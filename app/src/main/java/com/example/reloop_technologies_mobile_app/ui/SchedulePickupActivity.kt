@@ -56,6 +56,44 @@ class SchedulePickupActivity : AppCompatActivity() {
             if (address.isNullOrEmpty()) {
                 addressInput?.error = "Please enter a pickup address"
                 Toast.makeText(this, "Please enter a pickup address", Toast.LENGTH_SHORT).show()
+            } else {
+                val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+                    ?: userProfile.uid
+
+                val newPickup = PickupModel(
+                    userId = currentUid,
+                    address = address,
+                    status = "Scheduled",
+                    scheduledDate = System.currentTimeMillis(),
+                    createdAt = System.currentTimeMillis()
+                )
+
+                pickupRepository.schedulePickup(newPickup) { result ->
+                    // On pickup saved, create and notify confirmation
+                    val pickupId = if (result is com.example.reloop_technologies_mobile_app.backend.ResultState.Success) result.data else ""
+                    val notification = NotificationModel(
+                        userId = currentUid,
+                        title = "Pickup Confirmed!",
+                        message = "Your recycling pickup request for address '$address' has been confirmed.",
+                        type = NotificationModel.TYPE_PICKUP_CONFIRMATION,
+                        relatedPickupId = pickupId,
+                        sentAt = System.currentTimeMillis(),
+                        createdAt = System.currentTimeMillis(),
+                        isRead = false
+                    )
+
+                    notificationRepository.addNotification(notification)
+
+                    // Post push notification to system notification bar
+                    NotificationHelper.showNotification(
+                        applicationContext,
+                        "Pickup Confirmed!",
+                        "Your recycling pickup request for address '$address' has been confirmed."
+                    )
+                }
+
+                Toast.makeText(this, "Pickup Request Submitted Successfully!", Toast.LENGTH_LONG).show()
+                startActivity(Intent(this, MyPickupsActivity::class.java))
                 return@setSingleClickListener
             }
 

@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
@@ -14,6 +15,14 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ReLoop_Technologies_Mobile_App">
+
+        <service
+            android:name=".backend.services.ReLoopMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <activity android:name=".ui.ForgotPasswordActivity" android:exported="false" />
         <activity android:name=".ui.RecyclingGuidanceActivity" android:exported="false" />
         <activity android:name=".ui.ProfileActivity" android:exported="false" />

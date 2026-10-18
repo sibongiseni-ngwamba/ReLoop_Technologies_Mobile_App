@@ -47,6 +47,7 @@ object NotificationHelper {
                     Manifest.permission.POST_NOTIFICATIONS
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
+                // Permission not granted; skip system bar notification post
                 return
             }
         }
