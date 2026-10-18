@@ -70,7 +70,13 @@ class ResultActivity : AppCompatActivity() {
         }
 
         guidanceCard.setOnClickListener {
-            startActivity(Intent(this, RecyclingGuidanceActivity::class.java))
+            val intent = Intent(this, RecyclingGuidanceActivity::class.java).apply {
+                putExtra("CATEGORY_ID", "cat_plastic_bottle")
+                putExtra("CATEGORY_NAME", predictedCategory)
+                putExtra("IS_RECYCLABLE", isRecyclable)
+                putExtra("IMAGE_URI", imageUriStr)
+            }
+            startActivity(intent)
         }
 
         saveResultButton.setOnClickListener {
