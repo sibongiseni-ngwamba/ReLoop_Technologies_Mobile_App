@@ -102,6 +102,10 @@ class MyPickupsActivity : AppCompatActivity() {
                 }
                 is ResultState.Success -> {
                     renderPickupsList(result.data)
+                    val pickups = result.data
+                    if (pickups.isNotEmpty()) {
+                        renderPickupsList(pickups)
+                    }
                 }
                 is ResultState.Error -> {
                     Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
@@ -119,6 +123,8 @@ class MyPickupsActivity : AppCompatActivity() {
 
         upcomingContainer.removeAllViews()
         if (upcomingList.isNotEmpty()) {
+        if (upcomingList.isNotEmpty()) {
+            upcomingContainer.removeAllViews()
             upcomingList.forEach { pickup ->
                 val cardView = createPickupCardView(pickup)
                 upcomingContainer.addView(cardView)
@@ -129,6 +135,10 @@ class MyPickupsActivity : AppCompatActivity() {
 
         historyContainer.removeAllViews()
         if (historyList.isNotEmpty()) {
+        }
+
+        if (historyList.isNotEmpty()) {
+            historyContainer.removeAllViews()
             historyList.forEach { pickup ->
                 val cardView = createPickupCardView(pickup)
                 historyContainer.addView(cardView)
@@ -201,6 +211,10 @@ class MyPickupsActivity : AppCompatActivity() {
         val dateCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        // Row 1: Date & Status Badge
+        val row1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
         }
 
         val dateTv = TextView(this).apply {
@@ -218,6 +232,9 @@ class MyPickupsActivity : AppCompatActivity() {
 
         dateCol.addView(dateTv)
         dateCol.addView(refTv)
+
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
 
         val badgeTv = TextView(this).apply {
             text = pickup.status
@@ -254,6 +271,13 @@ class MyPickupsActivity : AppCompatActivity() {
         val row2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+        row1.addView(dateTv)
+        row1.addView(badgeTv)
+
+        // Row 2: Time
+        val row2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
             val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             lp.topMargin = (10 * resources.displayMetrics.density).toInt()
             layoutParams = lp
@@ -261,6 +285,7 @@ class MyPickupsActivity : AppCompatActivity() {
 
         val timeTv = TextView(this).apply {
             text = "Time: $timeStr"
+            text = "Scheduled: $timeStr"
             textSize = 13f
             setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
         }
@@ -343,6 +368,9 @@ class MyPickupsActivity : AppCompatActivity() {
             }
             .setNegativeButton("Keep Request", null)
             .show()
+    }
+
+        return cardLayout
     }
 
     private fun setupBottomNav() {

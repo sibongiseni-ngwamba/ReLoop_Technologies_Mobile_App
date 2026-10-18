@@ -19,7 +19,6 @@ import com.example.reloop_technologies_mobile_app.backend.repositories.UserRepos
 import com.example.reloop_technologies_mobile_app.backend.services.FirebaseAuthService
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
-import com.google.firebase.auth.FirebaseAuth
 
 class ProfileActivity : AppCompatActivity() {
     private val userRepository = UserRepository()
@@ -94,8 +93,6 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.logoutButton)?.setSingleClickListener {
-            FirebaseAuth.getInstance().signOut()
-        findViewById<Button>(R.id.logoutButton)?.setOnClickListener {
             authService.signOut()
             UserManager.logout(this)
             startActivity(Intent(this, MainActivity::class.java))
@@ -127,7 +124,6 @@ class ProfileActivity : AppCompatActivity() {
         val userId = getUserId()
         val localProfile = UserManager.getUserProfile(this)
 
-        // Local profile preview first
         if (localProfile.name.isNotEmpty()) {
             nameText.text = localProfile.name
             avatarText.text = localProfile.name.first().uppercase()
@@ -206,7 +202,7 @@ class ProfileActivity : AppCompatActivity() {
             phoneNumber = phone,
             address = address,
             profileImageUrl = imageUrl.ifEmpty { null },
-            updatedAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
         )
 
         saveProgressBar.visibility = View.VISIBLE
