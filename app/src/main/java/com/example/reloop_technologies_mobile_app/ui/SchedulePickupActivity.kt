@@ -23,6 +23,13 @@ class SchedulePickupActivity : AppCompatActivity() {
 
     private val pickupRepository = PickupRepository()
     private val notificationRepository = NotificationRepository()
+import com.example.reloop_technologies_mobile_app.backend.models.PickupModel
+import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
+import com.example.reloop_technologies_mobile_app.database.UserManager
+import com.google.firebase.auth.FirebaseAuth
+
+class SchedulePickupActivity : AppCompatActivity() {
+    private val pickupRepository = PickupRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -115,6 +122,23 @@ class SchedulePickupActivity : AppCompatActivity() {
                         submitButton.isEnabled = true
                         Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
                     }
+            } else {
+                val userId = FirebaseAuth.getInstance().currentUser?.uid
+                    ?: userProfile.uid.ifEmpty { "default_user" }
+
+                val newPickup = PickupModel(
+                    userId = userId,
+                    address = address,
+                    wasteType = "Recyclables (Plastic, Paper, Glass)",
+                    wasteTypes = listOf("Plastic", "Paper", "Glass"),
+                    status = "Scheduled",
+                    scheduledDate = System.currentTimeMillis() + (2 * 86400000L)
+                )
+
+                pickupRepository.schedulePickup(newPickup) {
+                    Toast.makeText(this, "Pickup Request Submitted Successfully!", Toast.LENGTH_LONG).show()
+                    startActivity(Intent(this, MyPickupsActivity::class.java))
+                    finish()
                 }
             }
         }

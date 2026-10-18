@@ -11,12 +11,15 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
+import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.google.firebase.auth.FirebaseAuth
 
 class MyPickupsActivity : AppCompatActivity() {
 
     private val pickupRepository = PickupRepository()
+    private val pickupRepository = PickupRepository()
+    private val rewardsRepository = RewardsRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -107,6 +110,24 @@ class MyPickupsActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.navProfile)?.setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        syncUserPickupsAndPoints()
+    }
+
+    private fun syncUserPickupsAndPoints() {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        val userId = currentUser?.uid ?: UserManager.getUserProfile(this).uid
+        if (userId.isEmpty()) return
+
+        pickupRepository.fetchPickupsForUser(userId) { result ->
+            if (result is ResultState.Success) {
+                val pickups = result.data
+                rewardsRepository.syncCompletedPickupsAndAwardPoints(userId, pickups, this) {}
+            }
         }
     }
 }
