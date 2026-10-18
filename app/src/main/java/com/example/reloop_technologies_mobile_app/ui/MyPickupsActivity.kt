@@ -4,11 +4,14 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatButton
 import androidx.core.content.ContextCompat
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
@@ -40,7 +43,12 @@ class MyPickupsActivity : AppCompatActivity() {
 
         setupTabs()
         setupBottomNav()
+    }
+
+    override fun onResume() {
+        super.onResume()
         loadPickups()
+        syncUserPickupsAndPoints()
     }
 
     private fun setupTabs() {
@@ -90,9 +98,10 @@ class MyPickupsActivity : AppCompatActivity() {
         pickupRepository.fetchPickupsForUser(currentUid) { result ->
             when (result) {
                 is ResultState.Loading -> {
-                    // Show subtle loading or retain current cache view
+                    // Retain view state while loading
                 }
                 is ResultState.Success -> {
+                    renderPickupsList(result.data)
                     val pickups = result.data
                     if (pickups.isNotEmpty()) {
                         renderPickupsList(pickups)
@@ -100,6 +109,7 @@ class MyPickupsActivity : AppCompatActivity() {
                 }
                 is ResultState.Error -> {
                     Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
+                    renderEmptyStates()
                 }
             }
         }
@@ -111,12 +121,20 @@ class MyPickupsActivity : AppCompatActivity() {
         val historyList = pickups.filter { it.status == "Completed" || it.status == "Cancelled" }
             .sortedByDescending { it.scheduledDate }
 
+        upcomingContainer.removeAllViews()
+        if (upcomingList.isNotEmpty()) {
         if (upcomingList.isNotEmpty()) {
             upcomingContainer.removeAllViews()
             upcomingList.forEach { pickup ->
                 val cardView = createPickupCardView(pickup)
                 upcomingContainer.addView(cardView)
             }
+        } else {
+            upcomingContainer.addView(createEmptyStateView("No upcoming pickups scheduled.\nTap Schedule Pickup to request one!"))
+        }
+
+        historyContainer.removeAllViews()
+        if (historyList.isNotEmpty()) {
         }
 
         if (historyList.isNotEmpty()) {
@@ -125,6 +143,40 @@ class MyPickupsActivity : AppCompatActivity() {
                 val cardView = createPickupCardView(pickup)
                 historyContainer.addView(cardView)
             }
+        } else {
+            historyContainer.addView(createEmptyStateView("No pickup history records found."))
+        }
+    }
+
+    private fun renderEmptyStates() {
+        upcomingContainer.removeAllViews()
+        upcomingContainer.addView(createEmptyStateView("Unable to load upcoming pickups."))
+
+        historyContainer.removeAllViews()
+        historyContainer.addView(createEmptyStateView("Unable to load pickup history."))
+    }
+
+    private fun createEmptyStateView(message: String): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundResource(R.drawable.bg_card)
+            val paddingPx = (24 * resources.displayMetrics.density).toInt()
+            setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.topMargin = (12 * resources.displayMetrics.density).toInt()
+            layoutParams = lp
+
+            val tv = TextView(context).apply {
+                text = message
+                textSize = 13.5f
+                gravity = Gravity.CENTER
+                setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+            }
+            addView(tv)
         }
     }
 
@@ -148,6 +200,17 @@ class MyPickupsActivity : AppCompatActivity() {
         val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
         val timeStr = sdfTime.format(Date(pickup.scheduledDate))
 
+        val refCode = if (pickup.pickupId.isNotEmpty()) "#" + pickup.pickupId.take(8) else "#PK-RELOOP"
+
+        // Row 1: Date, Ref & Status Badge
+        val row1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val dateCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         // Row 1: Date & Status Badge
         val row1 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -159,6 +222,17 @@ class MyPickupsActivity : AppCompatActivity() {
             textSize = 15f
             setTypeface(null, Typeface.BOLD)
             setTextColor(ContextCompat.getColor(context, R.color.text_primary))
+        }
+
+        val refTv = TextView(this).apply {
+            text = "Ref: $refCode"
+            textSize = 11.5f
+            setTextColor(ContextCompat.getColor(context, R.color.text_muted))
+        }
+
+        dateCol.addView(dateTv)
+        dateCol.addView(refTv)
+
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
@@ -190,6 +264,13 @@ class MyPickupsActivity : AppCompatActivity() {
             }
         }
 
+        row1.addView(dateCol)
+        row1.addView(badgeTv)
+
+        // Row 2: Scheduled Time
+        val row2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         row1.addView(dateTv)
         row1.addView(badgeTv)
 
@@ -203,6 +284,7 @@ class MyPickupsActivity : AppCompatActivity() {
         }
 
         val timeTv = TextView(this).apply {
+            text = "Time: $timeStr"
             text = "Scheduled: $timeStr"
             textSize = 13f
             setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
@@ -240,6 +322,54 @@ class MyPickupsActivity : AppCompatActivity() {
         cardLayout.addView(row2)
         cardLayout.addView(row3)
 
+        // Business Rule: Cancellation allowed ONLY for "Scheduled" pickups
+        if (pickup.status == "Scheduled" && pickup.pickupId.isNotEmpty()) {
+            val cancelBtn = AppCompatButton(this).apply {
+                text = "Cancel Request"
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(Color.parseColor("#DC2626"))
+                setBackgroundResource(R.drawable.bg_input_box)
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    (36 * resources.displayMetrics.density).toInt()
+                )
+                lp.topMargin = (12 * resources.displayMetrics.density).toInt()
+                layoutParams = lp
+
+                setOnClickListener {
+                    confirmAndCancelPickup(pickup.pickupId, refCode)
+                }
+            }
+            cardLayout.addView(cancelBtn)
+        }
+
+        return cardLayout
+    }
+
+    private fun confirmAndCancelPickup(pickupId: String, refCode: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Cancel Pickup Request")
+            .setMessage("Are you sure you want to cancel pickup request $refCode?")
+            .setPositiveButton("Yes, Cancel") { dialog, _ ->
+                dialog.dismiss()
+                pickupRepository.cancelPickup(pickupId) { result ->
+                    when (result) {
+                        is ResultState.Success -> {
+                            Toast.makeText(this, "Pickup request $refCode has been cancelled.", Toast.LENGTH_SHORT).show()
+                            loadPickups()
+                        }
+                        is ResultState.Error -> {
+                            Toast.makeText(this, "Failed to cancel: ${result.message}", Toast.LENGTH_SHORT).show()
+                        }
+                        else -> {}
+                    }
+                }
+            }
+            .setNegativeButton("Keep Request", null)
+            .show()
+    }
+
         return cardLayout
     }
 
@@ -257,11 +387,6 @@ class MyPickupsActivity : AppCompatActivity() {
         findViewById<View>(R.id.navProfile)?.setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        syncUserPickupsAndPoints()
     }
 
     private fun syncUserPickupsAndPoints() {

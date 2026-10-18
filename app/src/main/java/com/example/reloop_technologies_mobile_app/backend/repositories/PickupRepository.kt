@@ -108,4 +108,30 @@ class PickupRepository(
                 onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
             }
     }
+
+    fun cancelPickup(
+        pickupId: String,
+        cancellationReason: String = "User requested cancellation",
+        onResult: (ResultState<Boolean>) -> Unit
+    ) {
+        if (pickupId.isEmpty()) {
+            onResult(ResultState.Error(message = "Pickup ID is empty."))
+            return
+        }
+        val now = System.currentTimeMillis()
+        val updates = mapOf<String, Any>(
+            "status" to "Cancelled",
+            "cancelledAt" to now,
+            "cancellationReason" to cancellationReason,
+            "updatedAt" to now
+        )
+        firestoreService.db.collection("pickups").document(pickupId)
+            .update(updates)
+            .addOnSuccessListener {
+                onResult(ResultState.Success(data = true))
+            }
+            .addOnFailureListener { exception ->
+                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
+            }
+    }
 }
