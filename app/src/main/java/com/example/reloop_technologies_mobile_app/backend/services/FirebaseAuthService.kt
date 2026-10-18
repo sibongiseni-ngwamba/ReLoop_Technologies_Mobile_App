@@ -53,6 +53,23 @@ class FirebaseAuthService(
             }
     }
 
+    fun updatePassword(newPassword: String, onResult: (ResultState<Boolean>) -> Unit) {
+        val user = auth.currentUser
+        if (user == null) {
+            onResult(ResultState.Error(message = "No authenticated user session found."))
+            return
+        }
+        onResult(ResultState.Loading)
+        user.updatePassword(newPassword)
+            .addOnSuccessListener {
+                onResult(ResultState.Success(true))
+            }
+            .addOnFailureListener { exception ->
+                val msg = exception.localizedMessage ?: "Failed to update password. Re-authentication may be required."
+                onResult(ResultState.Error(exception = exception, message = msg))
+            }
+    }
+
     fun sendPasswordResetEmail(email: String, onResult: (ResultState<Boolean>) -> Unit) {
         onResult(ResultState.Loading)
         auth.sendPasswordResetEmail(email)
