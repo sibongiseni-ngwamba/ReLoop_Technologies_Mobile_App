@@ -1,5 +1,7 @@
 package com.example.reloop_technologies_mobile_app.ui
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -18,18 +20,27 @@ import com.example.reloop_technologies_mobile_app.backend.services.NotificationH
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
 import com.google.firebase.auth.FirebaseAuth
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 class SchedulePickupActivity : AppCompatActivity() {
 
     private val pickupRepository = PickupRepository()
     private val notificationRepository = NotificationRepository()
-import com.example.reloop_technologies_mobile_app.backend.models.PickupModel
-import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
-import com.example.reloop_technologies_mobile_app.database.UserManager
-import com.google.firebase.auth.FirebaseAuth
 
-class SchedulePickupActivity : AppCompatActivity() {
-    private val pickupRepository = PickupRepository()
+    private lateinit var addressInput: EditText
+    private lateinit var dateInput: EditText
+    private lateinit var timeInput: EditText
+    private lateinit var wasteTypeInput: EditText
+    private lateinit var notesInput: EditText
+    private lateinit var submitButton: Button
+    private lateinit var progressBar: ProgressBar
+
+    private val calendar: Calendar = Calendar.getInstance()
+    private var isDateSelected = false
+    private var isTimeSelected = false
+    private var isSubmitting = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,151 +48,183 @@ class SchedulePickupActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.backButton)?.setOnClickListener { finish() }
 
-        val addressInput = findViewById<EditText>(R.id.addressInput)
-        val wasteTypeInput = findViewById<EditText>(R.id.wasteTypeInput)
-        val notesInput = findViewById<EditText>(R.id.notesInput)
-        val submitButton = findViewById<Button>(R.id.submitButton)
-        val progressBar = findViewById<ProgressBar>(R.id.scheduleProgressBar)
+        addressInput = findViewById(R.id.addressInput)
+        dateInput = findViewById(R.id.dateInput)
+        timeInput = findViewById(R.id.timeInput)
+        wasteTypeInput = findViewById(R.id.wasteTypeInput)
+        notesInput = findViewById(R.id.notesInput)
+        submitButton = findViewById(R.id.submitButton)
+        progressBar = findViewById(R.id.scheduleProgressBar)
 
         val userProfile = UserManager.getUserProfile(this)
         if (userProfile.address.isNotEmpty()) {
-            addressInput?.setText(userProfile.address)
+            addressInput.setText(userProfile.address)
         }
 
-        submitButton?.setSingleClickListener {
-            val address = addressInput?.text?.toString()?.trim()
-            val wasteType = wasteTypeInput?.text?.toString()?.trim() ?: ""
-            val notes = notesInput?.text?.toString()?.trim() ?: ""
+        setupDateAndPickers()
 
-            if (address.isNullOrEmpty()) {
-                addressInput?.error = "Please enter a pickup address"
-                Toast.makeText(this, "Please enter a pickup address", Toast.LENGTH_SHORT).show()
-            } else {
-                val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-                    ?: userProfile.uid
+        submitButton.setSingleClickListener {
+            if (isSubmitting) return@setSingleClickListener
+            validateAndSubmitPickup()
+        }
 
-                val newPickup = PickupModel(
-                    userId = currentUid,
-                    address = address,
-                    status = "Scheduled",
-                    scheduledDate = System.currentTimeMillis(),
-                    createdAt = System.currentTimeMillis()
-                )
+        setupBottomNav()
+    }
 
-                pickupRepository.schedulePickup(newPickup) { result ->
-                    // On pickup saved, create and notify confirmation
-                    val pickupId = if (result is com.example.reloop_technologies_mobile_app.backend.ResultState.Success) result.data else ""
+    private fun setupDateAndPickers() {
+        dateInput.isFocusable = false
+        dateInput.isClickable = true
+        timeInput.isFocusable = false
+        timeInput.isClickable = true
+
+        val dateSetListener = DatePickerDialog.OnDateSetListener { _, year, month, dayOfMonth ->
+            calendar.set(Calendar.YEAR, year)
+            calendar.set(Calendar.MONTH, month)
+            calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+
+            val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+            dateInput.setText(sdf.format(calendar.time))
+            dateInput.error = null
+            isDateSelected = true
+        }
+
+        dateInput.setOnClickListener {
+            val datePickerDialog = DatePickerDialog(
+                this,
+                dateSetListener,
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            )
+            datePickerDialog.datePicker.minDate = System.currentTimeMillis() - 1000
+            datePickerDialog.show()
+        }
+
+        val timeSetListener = TimePickerDialog.OnTimeSetListener { _, hourOfDay, minute ->
+            calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+            calendar.set(Calendar.MINUTE, minute)
+
+            val timeSdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            timeInput.setText(timeSdf.format(calendar.time))
+            timeInput.error = null
+            isTimeSelected = true
+        }
+
+        timeInput.setOnClickListener {
+            TimePickerDialog(
+                this,
+                timeSetListener,
+                calendar.get(Calendar.HOUR_OF_DAY),
+                calendar.get(Calendar.MINUTE),
+                false
+            ).show()
+        }
+    }
+
+    private fun validateAndSubmitPickup() {
+        val address = addressInput.text?.toString()?.trim() ?: ""
+        val dateText = dateInput.text?.toString()?.trim() ?: ""
+        val timeText = timeInput.text?.toString()?.trim() ?: ""
+        val wasteType = wasteTypeInput.text?.toString()?.trim() ?: ""
+        val notes = notesInput.text?.toString()?.trim() ?: ""
+
+        var isValid = true
+
+        if (address.isEmpty()) {
+            addressInput.error = "Please enter a pickup address"
+            isValid = false
+        }
+        if (dateText.isEmpty() || !isDateSelected) {
+            dateInput.error = "Please select a preferred date"
+            isValid = false
+        }
+        if (timeText.isEmpty() || !isTimeSelected) {
+            timeInput.error = "Please select a preferred time"
+            isValid = false
+        }
+        if (wasteType.isEmpty()) {
+            wasteTypeInput.error = "Please enter waste type(s)"
+            isValid = false
+        }
+
+        if (!isValid) return
+
+        if (calendar.timeInMillis < System.currentTimeMillis() - 60000) {
+            Toast.makeText(this, "Selected pickup slot is in the past. Please choose a future slot.", Toast.LENGTH_LONG).show()
+            dateInput.error = "Slot unavailable"
+            return
+        }
+
+        val userProfile = UserManager.getUserProfile(this)
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: userProfile.uid
+
+        if (currentUid.isEmpty()) {
+            Toast.makeText(this, "Session expired. Please log in again.", Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
+
+        isSubmitting = true
+        submitButton.isEnabled = false
+        progressBar.visibility = View.VISIBLE
+
+        val newPickup = PickupModel(
+            userId = currentUid,
+            address = address,
+            wasteType = wasteType,
+            wasteTypes = wasteType.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+            notes = notes,
+            status = "Scheduled",
+            scheduledDate = calendar.timeInMillis,
+            createdAt = System.currentTimeMillis()
+        )
+
+        pickupRepository.schedulePickup(newPickup) { result ->
+            when (result) {
+                is ResultState.Loading -> {
+                    progressBar.visibility = View.VISIBLE
+                    submitButton.isEnabled = false
+                }
+                is ResultState.Success -> {
+                    progressBar.visibility = View.GONE
+                    isSubmitting = false
+                    val pickupId = result.data
+
                     val notification = NotificationModel(
                         userId = currentUid,
                         title = "Pickup Confirmed!",
-                        message = "Your recycling pickup request for address '$address' has been confirmed.",
+                        message = "Your recycling pickup request (#${pickupId.take(8)}) for address '$address' on $dateText at $timeText has been confirmed.",
                         type = NotificationModel.TYPE_PICKUP_CONFIRMATION,
                         relatedPickupId = pickupId,
                         sentAt = System.currentTimeMillis(),
                         createdAt = System.currentTimeMillis(),
                         isRead = false
                     )
-
                     notificationRepository.addNotification(notification)
 
-                    // Post push notification to system notification bar
                     NotificationHelper.showNotification(
                         applicationContext,
                         "Pickup Confirmed!",
-                        "Your recycling pickup request for address '$address' has been confirmed."
+                        "Your pickup request (#${pickupId.take(8)}) has been scheduled successfully."
                     )
-                }
 
-                Toast.makeText(this, "Pickup Request Submitted Successfully!", Toast.LENGTH_LONG).show()
-                startActivity(Intent(this, MyPickupsActivity::class.java))
-                return@setSingleClickListener
-            }
-
-            val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-                ?: userProfile.uid
-
-            if (currentUid.isEmpty()) {
-                Toast.makeText(this, "Session expired. Please log in again.", Toast.LENGTH_LONG).show()
-                startActivity(Intent(this, MainActivity::class.java))
-                finish()
-                return@setSingleClickListener
-            }
-
-            // Lock UI against duplicate bookings
-            submitButton.isEnabled = false
-            progressBar?.visibility = View.VISIBLE
-
-            val newPickup = PickupModel(
-                userId = currentUid,
-                address = address,
-                wasteType = wasteType,
-                notes = notes,
-                status = "Scheduled",
-                scheduledDate = System.currentTimeMillis(),
-                createdAt = System.currentTimeMillis()
-            )
-
-            pickupRepository.schedulePickup(newPickup) { result ->
-                when (result) {
-                    is ResultState.Loading -> {
-                        progressBar?.visibility = View.VISIBLE
-                        submitButton.isEnabled = false
-                    }
-                    is ResultState.Success -> {
-                        progressBar?.visibility = View.GONE
-                        val pickupId = result.data
-
-                        // Add confirmation notification
-                        val notification = NotificationModel(
-                            userId = currentUid,
-                            title = "Pickup Confirmed!",
-                            message = "Your recycling pickup request for '$address' has been confirmed.",
-                            type = NotificationModel.TYPE_PICKUP_CONFIRMATION,
-                            relatedPickupId = pickupId,
-                            sentAt = System.currentTimeMillis(),
-                            createdAt = System.currentTimeMillis(),
-                            isRead = false
-                        )
-                        notificationRepository.addNotification(notification)
-
-                        // Post local push notification
-                        NotificationHelper.showNotification(
-                            applicationContext,
-                            "Pickup Confirmed!",
-                            "Your recycling pickup request for '$address' has been confirmed."
-                        )
-
-                        Toast.makeText(this, "Pickup Request Submitted Successfully!", Toast.LENGTH_LONG).show()
-                        startActivity(Intent(this, MyPickupsActivity::class.java))
-                        finish()
-                    }
-                    is ResultState.Error -> {
-                        progressBar?.visibility = View.GONE
-                        submitButton.isEnabled = true
-                        Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
-                    }
-            } else {
-                val userId = FirebaseAuth.getInstance().currentUser?.uid
-                    ?: userProfile.uid.ifEmpty { "default_user" }
-
-                val newPickup = PickupModel(
-                    userId = userId,
-                    address = address,
-                    wasteType = "Recyclables (Plastic, Paper, Glass)",
-                    wasteTypes = listOf("Plastic", "Paper", "Glass"),
-                    status = "Scheduled",
-                    scheduledDate = System.currentTimeMillis() + (2 * 86400000L)
-                )
-
-                pickupRepository.schedulePickup(newPickup) {
-                    Toast.makeText(this, "Pickup Request Submitted Successfully!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Pickup Request Submitted! Reference: #${pickupId.take(8)}", Toast.LENGTH_LONG).show()
                     startActivity(Intent(this, MyPickupsActivity::class.java))
                     finish()
                 }
+                is ResultState.Error -> {
+                    progressBar.visibility = View.GONE
+                    isSubmitting = false
+                    submitButton.isEnabled = true
+                    Toast.makeText(this, "Failed to schedule pickup: ${result.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
+    }
 
-        // Bottom Nav
+    private fun setupBottomNav() {
         findViewById<View>(R.id.navHome)?.setOnClickListener {
             startActivity(Intent(this, HomeActivity::class.java))
         }
