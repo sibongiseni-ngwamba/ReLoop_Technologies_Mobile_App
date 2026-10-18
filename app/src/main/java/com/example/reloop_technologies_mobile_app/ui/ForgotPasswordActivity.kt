@@ -9,6 +9,7 @@ import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
+import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
 import com.google.firebase.auth.FirebaseAuth
 
 class ForgotPasswordActivity : AppCompatActivity() {
@@ -27,17 +28,17 @@ class ForgotPasswordActivity : AppCompatActivity() {
         val progressBar = findViewById<ProgressBar>(R.id.resetProgressBar)
         val sendResetButton = findViewById<Button>(R.id.sendResetButton)
 
-        sendResetButton?.setOnClickListener {
+        sendResetButton?.setSingleClickListener {
             val email = emailInput?.text?.toString()?.trim() ?: ""
 
             if (email.isEmpty()) {
                 emailInput?.error = "Please enter your email address"
-                return@setOnClickListener
+                return@setSingleClickListener
             }
 
             if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                 emailInput?.error = "Please enter a valid email address"
-                return@setOnClickListener
+                return@setSingleClickListener
             }
 
             progressBar?.visibility = View.VISIBLE

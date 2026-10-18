@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.database.UserData
 import com.example.reloop_technologies_mobile_app.database.UserManager
+import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -59,7 +60,7 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, ForgotPasswordActivity::class.java))
         }
 
-        loginButton?.setOnClickListener {
+        loginButton?.setSingleClickListener {
             val email = emailInput?.text?.toString()?.trim() ?: ""
             val password = passwordInput?.text?.toString() ?: ""
 
@@ -78,7 +79,7 @@ class MainActivity : AppCompatActivity() {
                 isValid = false
             }
 
-            if (!isValid) return@setOnClickListener
+            if (!isValid) return@setSingleClickListener
 
             progressBar?.visibility = View.VISIBLE
             loginButton.isEnabled = false

@@ -18,6 +18,8 @@ import com.example.reloop_technologies_mobile_app.backend.models.UserModel
 import com.example.reloop_technologies_mobile_app.backend.repositories.UserRepository
 import com.example.reloop_technologies_mobile_app.backend.services.FirebaseAuthService
 import com.example.reloop_technologies_mobile_app.database.UserManager
+import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
+import com.google.firebase.auth.FirebaseAuth
 
 class ProfileActivity : AppCompatActivity() {
     private val userRepository = UserRepository()
@@ -91,6 +93,8 @@ class ProfileActivity : AppCompatActivity() {
             startActivity(Intent(this, RecyclingGuidanceActivity::class.java))
         }
 
+        findViewById<Button>(R.id.logoutButton)?.setSingleClickListener {
+            FirebaseAuth.getInstance().signOut()
         findViewById<Button>(R.id.logoutButton)?.setOnClickListener {
             authService.signOut()
             UserManager.logout(this)
