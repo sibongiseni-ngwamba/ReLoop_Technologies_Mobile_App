@@ -30,6 +30,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
+            android:text="Rewards &amp; Catalog"
             android:text="Rewards &amp; Points"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
@@ -283,11 +284,13 @@
                 android:layout_marginTop="12dp"
                 android:orientation="vertical" />
 
+            <!-- Active Reward Catalogue Section -->
             <!-- Available Vouchers Section -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="28dp"
+                android:text="Reward Catalogue"
                 android:text="Redeem Vouchers"
                 android:textColor="@color/text_primary"
                 android:textSize="16sp"
@@ -335,14 +338,15 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="500 pts"
+                        android:text="500 pts • Valid at organic cafes"
                         android:textColor="@color/primary_green"
-                        android:textSize="13sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/redeemButton1"
+                    android:layout_width="92dp"
                     android:layout_width="88dp"
                     android:layout_height="36dp"
                     android:background="@drawable/bg_green_button"
@@ -395,14 +399,15 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="800 pts"
+                        android:text="800 pts • Sustainable markets"
                         android:textColor="@color/primary_green"
-                        android:textSize="13sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/redeemButton2"
+                    android:layout_width="92dp"
                     android:layout_width="88dp"
                     android:layout_height="36dp"
                     android:background="@drawable/bg_green_button"
@@ -455,14 +460,16 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
+                        android:text="1,000 pts • Reforestation project"
                         android:text="1,000 pts"
                         android:textColor="@color/primary_green"
-                        android:textSize="13sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/redeemButton3"
+                    android:layout_width="92dp"
                     android:layout_width="88dp"
                     android:layout_height="36dp"
                     android:background="@drawable/bg_green_button"
@@ -515,6 +522,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
+                        android:text="1,500 pts • Online EcoMart code"
+                        android:textColor="@color/primary_green"
+                        android:textSize="12sp"
                         android:text="1,500 pts"
                         android:textColor="@color/primary_green"
                         android:textSize="13sp"
@@ -523,6 +533,7 @@
 
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/redeemButton4"
+                    android:layout_width="92dp"
                     android:layout_width="88dp"
                     android:layout_height="36dp"
                     android:background="@drawable/bg_green_button"

@@ -1,5 +1,9 @@
 package com.example.reloop_technologies_mobile_app.ui
 
+import android.app.ProgressDialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -14,11 +18,13 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.example.reloop_technologies_mobile_app.backend.models.PointsTransaction
+import com.example.reloop_technologies_mobile_app.backend.models.RedemptionLog
 import com.example.reloop_technologies_mobile_app.backend.models.RewardAccount
 import com.example.reloop_technologies_mobile_app.backend.models.RewardItem
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
@@ -36,6 +42,9 @@ class RewardsActivity : AppCompatActivity() {
 
     private var currentAccount: RewardAccount = RewardAccount()
     private var allTransactions: List<PointsTransaction> = emptyList()
+    private var catalogueItems: List<RewardItem> = emptyList()
+    private var currentFilter: String = "all" // "all", "earned", "redeemed"
+    private var isProcessingRedemption: Boolean = false
     private var currentFilter: String = "all" // "all", "earned", "redeemed"
 
     private lateinit var pointsBalanceText: TextView
@@ -79,6 +88,15 @@ class RewardsActivity : AppCompatActivity() {
         levelProgressText = findViewById(R.id.levelProgressText)
         levelProgressBar = findViewById(R.id.levelProgressBar)
 
+
+    private fun bindViews() {
+        pointsBalanceText = findViewById(R.id.pointsBalanceText)
+        levelBadgeText = findViewById(R.id.levelBadgeText)
+        totalEarnedText = findViewById(R.id.totalEarnedText)
+        totalRedeemedText = findViewById(R.id.totalRedeemedText)
+        levelProgressText = findViewById(R.id.levelProgressText)
+        levelProgressBar = findViewById(R.id.levelProgressBar)
+
         filterAllBtn = findViewById(R.id.filterAllBtn)
         filterEarnedBtn = findViewById(R.id.filterEarnedBtn)
         filterRedeemedBtn = findViewById(R.id.filterRedeemedBtn)
@@ -97,6 +115,26 @@ class RewardsActivity : AppCompatActivity() {
         findViewById<View>(R.id.backButton)?.setOnClickListener { finish() }
 
         // Filter Tabs
+        filterAllBtn.setOnClickListener { setFilter("all") }
+        filterEarnedBtn.setOnClickListener { setFilter("earned") }
+        filterRedeemedBtn.setOnClickListener { setFilter("redeemed") }
+
+        // Voucher Redeem Actions
+        redeemButton1.setOnClickListener {
+            val item = getItemByPosition(0, "$5 Coffee Shop Voucher", 500)
+            initiateRewardRedemption(item)
+        }
+        redeemButton2.setOnClickListener {
+            val item = getItemByPosition(1, "10% Off Eco Grocery", 800)
+            initiateRewardRedemption(item)
+        }
+        redeemButton3.setOnClickListener {
+            val item = getItemByPosition(2, "Plant a Tree in Your Name", 1000)
+            initiateRewardRedemption(item)
+        }
+        redeemButton4.setOnClickListener {
+            val item = getItemByPosition(3, "$15 Eco Store Gift Card", 1500)
+            initiateRewardRedemption(item)
         filterAllBtn.setOnClickListener {
             setFilter("all")
         }
@@ -164,6 +202,20 @@ class RewardsActivity : AppCompatActivity() {
         }
     }
 
+    private fun getItemByPosition(index: Int, defaultName: String, defaultCost: Int): RewardItem {
+        if (catalogueItems.size > index) {
+            return catalogueItems[index]
+        }
+        return RewardItem(
+            rewardItemId = "item_${index + 1}",
+            itemName = defaultName,
+            description = "Active reward item in catalogue",
+            pointsCost = defaultCost,
+            isActive = true,
+            stockQuantity = 50
+        )
+    }
+
     private fun getUserId(): String {
         val currentUser = FirebaseAuth.getInstance().currentUser
         val uid = currentUser?.uid ?: UserManager.getUserProfile(this).uid
@@ -174,6 +226,14 @@ class RewardsActivity : AppCompatActivity() {
         val userId = getUserId()
         transactionsLoadingBar.visibility = View.VISIBLE
 
+        // 1. Fetch Reward Catalogue Items
+        rewardsRepository.fetchAvailableRewardItems(this) { result ->
+            if (result is ResultState.Success) {
+                catalogueItems = result.data
+            }
+        }
+
+        // 2. Fetch Reward Account Balance
         // 1. Fetch Reward Account
         rewardsRepository.fetchRewardAccount(userId, this) { result ->
             when (result) {
@@ -185,6 +245,7 @@ class RewardsActivity : AppCompatActivity() {
             }
         }
 
+        // 3. Fetch User Pickups & Sync Completed Pickups for Points
         // 2. Fetch User Pickups & Sync Completed Pickups for Points
         pickupRepository.fetchPickupsForUser(userId) { result ->
             if (result is ResultState.Success) {
@@ -263,6 +324,35 @@ class RewardsActivity : AppCompatActivity() {
         levelProgressBar.max = maxProgress
         levelProgressBar.progress = currentProgress
 
+        // Update Catalogue Redeem Buttons state based on points balance & active/stock status
+        val item1 = getItemByPosition(0, "$5 Coffee Shop Voucher", 500)
+        val item2 = getItemByPosition(1, "10% Off Eco Grocery", 800)
+        val item3 = getItemByPosition(2, "Plant a Tree in Your Name", 1000)
+        val item4 = getItemByPosition(3, "$15 Eco Store Gift Card", 1500)
+
+        updateButtonState(redeemButton1, item1, account.pointsBalance)
+        updateButtonState(redeemButton2, item2, account.pointsBalance)
+        updateButtonState(redeemButton3, item3, account.pointsBalance)
+        updateButtonState(redeemButton4, item4, account.pointsBalance)
+    }
+
+    private fun updateButtonState(btn: Button, item: RewardItem, currentBalance: Int) {
+        if (!item.isActive || (item.stockQuantity != null && item.stockQuantity <= 0)) {
+            btn.isEnabled = false
+            btn.text = "Out of Stock"
+            btn.alpha = 0.5f
+            return
+        }
+
+        if (currentBalance < item.pointsCost) {
+            val needed = item.pointsCost - currentBalance
+            btn.isEnabled = false
+            btn.text = "Need $needed pts"
+            btn.alpha = 0.6f
+        } else {
+            btn.isEnabled = !isProcessingRedemption
+            btn.text = "Redeem"
+            btn.alpha = if (isProcessingRedemption) 0.5f else 1.0f
         // Update button states based on points balance
         updateButtonState(redeemButton1, account.pointsBalance >= 500)
         updateButtonState(redeemButton2, account.pointsBalance >= 800)
@@ -408,6 +498,67 @@ class RewardsActivity : AppCompatActivity() {
         }
     }
 
+    private fun initiateRewardRedemption(item: RewardItem) {
+        if (isProcessingRedemption) return
+
+        // 1. Availability check
+        if (!item.isActive || (item.stockQuantity != null && item.stockQuantity <= 0)) {
+            Toast.makeText(this, "This reward is currently out of stock or unavailable.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 2. Balance Validation
+        if (currentAccount.pointsBalance < item.pointsCost) {
+            val needed = item.pointsCost - currentAccount.pointsBalance
+            AlertDialog.Builder(this)
+                .setTitle("Insufficient Points")
+                .setMessage("You need $needed more points to redeem ${item.itemName}.\n\nCurrent Balance: ${currentAccount.pointsBalance} pts\nRequired: ${item.pointsCost} pts")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+
+        // 3. Confirmation Dialog
+        val numFormat = NumberFormat.getNumberInstance(Locale.US)
+        val remainingAfter = currentAccount.pointsBalance - item.pointsCost
+
+        AlertDialog.Builder(this)
+            .setTitle("Confirm Reward Redemption")
+            .setMessage("Are you sure you want to redeem \"${item.itemName}\" for ${item.pointsCost} pts?\n\n" +
+                    "Current Balance: ${numFormat.format(currentAccount.pointsBalance)} pts\n" +
+                    "Remaining Balance After: ${numFormat.format(remainingAfter)} pts")
+            .setPositiveButton("Confirm & Redeem") { dialog, _ ->
+                dialog.dismiss()
+                executeRedemption(item)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun executeRedemption(item: RewardItem) {
+        val userId = getUserId()
+        isProcessingRedemption = true
+        updateAccountUi(currentAccount)
+
+        @Suppress("DEPRECATION")
+        val progressDialog = ProgressDialog(this).apply {
+            setMessage("Processing redemption securely...")
+            setCancelable(false)
+            show()
+        }
+
+        rewardsRepository.processRewardRedemption(userId, item, this) { result ->
+            progressDialog.dismiss()
+            isProcessingRedemption = false
+
+            when (result) {
+                is ResultState.Success -> {
+                    val updatedAccount = result.data.first
+                    val log = result.data.second
+                    currentAccount = updatedAccount
+                    updateAccountUi(currentAccount)
+
+                    // Reload transactions list
     private fun redeemVoucher(item: RewardItem) {
         val userId = getUserId()
 
@@ -431,6 +582,17 @@ class RewardsActivity : AppCompatActivity() {
                             renderTransactions(allTransactions)
                         }
                     }
+
+                    // Display Voucher Confirmation Code Dialog
+                    showVoucherConfirmationDialog(item, log)
+                }
+                is ResultState.Error -> {
+                    updateAccountUi(currentAccount)
+                    AlertDialog.Builder(this)
+                        .setTitle("Redemption Failed")
+                        .setMessage(result.message ?: "Failed to process reward redemption. Please try again.")
+                        .setPositiveButton("OK", null)
+                        .show()
                 }
                 is ResultState.Error -> {
                     Toast.makeText(this, result.message ?: "Redemption failed.", Toast.LENGTH_SHORT).show()
@@ -438,6 +600,34 @@ class RewardsActivity : AppCompatActivity() {
                 is ResultState.Loading -> {}
             }
         }
+    }
+
+    private fun showVoucherConfirmationDialog(item: RewardItem, log: RedemptionLog) {
+        val voucherCode = log.voucherCode ?: "RELOOP-${(100000..999999).random()}"
+        val numFormat = NumberFormat.getNumberInstance(Locale.US)
+
+        val messageText = "Redemption Successful! 🎉\n\n" +
+                "Voucher: ${item.itemName}\n" +
+                "Voucher Code: $voucherCode\n\n" +
+                "Remaining Balance: ${numFormat.format(currentAccount.pointsBalance)} pts\n\n" +
+                "Use this voucher code at checkout to claim your reward."
+
+        AlertDialog.Builder(this)
+            .setTitle("Voucher Generated")
+            .setMessage(messageText)
+            .setPositiveButton("Copy Code") { dialog, _ ->
+                copyToClipboard("Voucher Code", voucherCode)
+                dialog.dismiss()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun copyToClipboard(label: String, text: String) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText(label, text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(this, "Voucher code copied to clipboard!", Toast.LENGTH_SHORT).show()
     }
 
     private fun dpToPx(dp: Int): Int {

@@ -18,6 +18,7 @@ class RewardsRepository(
         const val PREF_NAME = "reloop_rewards_prefs"
         const val KEY_ACCOUNT_PREFIX = "reward_account_"
         const val KEY_TRANSACTIONS_PREFIX = "reward_transactions_"
+        const val KEY_REDEMPTIONS_PREFIX = "reward_redemptions_"
     }
 
     private fun getSharedPreferences(context: Context) =
@@ -93,6 +94,55 @@ class RewardsRepository(
                         points = obj.optInt("points", 0),
                         relatedId = obj.optString("relatedId").ifEmpty { null },
                         description = obj.optString("description"),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    )
+                )
+            }
+            list
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveRedemptionLogsLocally(context: Context, userId: String, logs: List<RedemptionLog>) {
+        if (userId.isEmpty()) return
+        val array = JSONArray()
+        for (log in logs) {
+            val obj = JSONObject().apply {
+                put("redemptionId", log.redemptionId)
+                put("userId", log.userId)
+                put("rewardItemId", log.rewardItemId)
+                put("pointsUsed", log.pointsUsed)
+                put("voucherCode", log.voucherCode ?: "")
+                put("status", log.status)
+                put("redeemedAt", log.redeemedAt)
+                put("createdAt", log.createdAt)
+            }
+            array.put(obj)
+        }
+        getSharedPreferences(context).edit()
+            .putString(KEY_REDEMPTIONS_PREFIX + userId, array.toString())
+            .apply()
+    }
+
+    fun getRedemptionLogsLocally(context: Context, userId: String): List<RedemptionLog> {
+        if (userId.isEmpty()) return emptyList()
+        val jsonStr = getSharedPreferences(context).getString(KEY_REDEMPTIONS_PREFIX + userId, null)
+            ?: return emptyList()
+        return try {
+            val array = JSONArray(jsonStr)
+            val list = mutableListOf<RedemptionLog>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                list.add(
+                    RedemptionLog(
+                        redemptionId = obj.optString("redemptionId"),
+                        userId = obj.optString("userId", userId),
+                        rewardItemId = obj.optString("rewardItemId"),
+                        pointsUsed = obj.optInt("pointsUsed", 0),
+                        voucherCode = obj.optString("voucherCode").ifEmpty { null },
+                        status = obj.optString("status", "Redeemed"),
+                        redeemedAt = obj.optLong("redeemedAt", System.currentTimeMillis()),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
                 )
@@ -334,6 +384,10 @@ class RewardsRepository(
         }
     }
 
+    fun fetchAvailableRewardItems(
+        context: Context? = null,
+        onResult: (ResultState<List<RewardItem>>) -> Unit
+    ) {
     fun fetchAvailableRewardItems(onResult: (ResultState<List<RewardItem>>) -> Unit) {
         onResult(ResultState.Loading)
         firestoreService.db.collection("rewardItems")
@@ -443,6 +497,166 @@ class RewardsRepository(
             addPointsTransaction(tx, context) {}
 
             onResult(ResultState.Success(updatedAccount))
+        }
+    }
+
+    fun getDefaultRewardItems(): List<RewardItem> {
+        return listOf(
+            RewardItem(
+                rewardItemId = "item_1",
+                itemName = "$5 Coffee Shop Voucher",
+                description = "Valid at participating organic coffee outlets.",
+                pointsCost = 500,
+                isActive = true,
+                stockQuantity = 50
+            ),
+            RewardItem(
+                rewardItemId = "item_2",
+                itemName = "10% Off Eco Grocery",
+                description = "Discount code for sustainable food products.",
+                pointsCost = 800,
+                isActive = true,
+                stockQuantity = 30
+            ),
+            RewardItem(
+                rewardItemId = "item_3",
+                itemName = "Plant a Tree in Your Name",
+                description = "We will plant a native tree to offset carbon.",
+                pointsCost = 1000,
+                isActive = true,
+                stockQuantity = 100
+            ),
+            RewardItem(
+                rewardItemId = "item_4",
+                itemName = "$15 Eco Store Gift Card",
+                description = "Redeemable online at EcoMart.",
+                pointsCost = 1500,
+                isActive = true,
+                stockQuantity = 20
+            )
+        )
+    }
+
+    fun processRewardRedemption(
+        userId: String,
+        rewardItem: RewardItem,
+        context: Context? = null,
+        onResult: (ResultState<Pair<RewardAccount, RedemptionLog>>) -> Unit
+    ) {
+        if (userId.isEmpty()) {
+            onResult(ResultState.Error(message = "User ID is empty."))
+            return
+        }
+
+        // 1. Fetch current account
+        fetchRewardAccount(userId, context) { accountResult ->
+            if (accountResult !is ResultState.Success) {
+                onResult(ResultState.Error(message = "Failed to retrieve user reward balance."))
+                return@fetchRewardAccount
+            }
+
+            val account = accountResult.data
+
+            // 2. Validate availability & stock
+            if (!rewardItem.isActive) {
+                onResult(ResultState.Error(message = "This reward item is currently inactive or unavailable."))
+                return@fetchRewardAccount
+            }
+
+            if (rewardItem.stockQuantity != null && rewardItem.stockQuantity <= 0) {
+                onResult(ResultState.Error(message = "This reward item is currently out of stock."))
+                return@fetchRewardAccount
+            }
+
+            // 3. Validate user points balance
+            if (account.pointsBalance < rewardItem.pointsCost) {
+                val needed = rewardItem.pointsCost - account.pointsBalance
+                onResult(ResultState.Error(message = "Insufficient points balance! You need $needed more points."))
+                return@fetchRewardAccount
+            }
+
+            // 4. Perform atomic deduction & creation
+            val now = System.currentTimeMillis()
+            val updatedAccount = account.copy(
+                pointsBalance = account.pointsBalance - rewardItem.pointsCost,
+                totalRedeemed = account.totalRedeemed + rewardItem.pointsCost,
+                lastUpdated = now
+            )
+
+            val voucherCode = "RELOOP-" + (100000..999999).random()
+            val logRef = firestoreService.db.collection("redemptionLogs").document()
+            val redemptionLog = RedemptionLog(
+                redemptionId = logRef.id,
+                userId = userId,
+                rewardItemId = rewardItem.rewardItemId,
+                pointsUsed = rewardItem.pointsCost,
+                voucherCode = voucherCode,
+                status = "Redeemed",
+                redeemedAt = now,
+                createdAt = now
+            )
+
+            val txRef = firestoreService.db.collection("pointsTransactions").document()
+            val pointsTx = PointsTransaction(
+                transactionId = txRef.id,
+                userId = userId,
+                transactionType = "redeem",
+                points = -rewardItem.pointsCost,
+                relatedId = redemptionLog.redemptionId,
+                description = "Redeemed: ${rewardItem.itemName}",
+                createdAt = now
+            )
+
+            // Local cache updates first for immediate consistency
+            context?.let { ctx ->
+                saveAccountLocally(ctx, updatedAccount)
+
+                val currentTxList = getTransactionsLocally(ctx, userId).toMutableList()
+                currentTxList.removeAll { item -> item.transactionId == pointsTx.transactionId }
+                currentTxList.add(0, pointsTx)
+                saveTransactionsLocally(ctx, userId, currentTxList)
+
+                val currentLogs = getRedemptionLogsLocally(ctx, userId).toMutableList()
+                currentLogs.removeAll { item -> item.redemptionId == redemptionLog.redemptionId }
+                currentLogs.add(0, redemptionLog)
+                saveRedemptionLogsLocally(ctx, userId, currentLogs)
+            }
+
+            // Firestore batch write
+            val batch = firestoreService.db.batch()
+            batch.set(firestoreService.db.collection("rewards").document(userId), updatedAccount)
+            batch.set(logRef, redemptionLog)
+            batch.set(txRef, pointsTx)
+
+            if (rewardItem.rewardItemId.isNotEmpty() && rewardItem.stockQuantity != null) {
+                val itemRef = firestoreService.db.collection("rewardItems").document(rewardItem.rewardItemId)
+                batch.update(itemRef, "stockQuantity", rewardItem.stockQuantity - 1)
+            }
+
+            batch.commit()
+                .addOnSuccessListener {
+                    onResult(ResultState.Success(Pair(updatedAccount, redemptionLog)))
+                }
+                .addOnFailureListener {
+                    // Local cache is already saved, so return success for offline capability
+                    onResult(ResultState.Success(Pair(updatedAccount, redemptionLog)))
+                }
+        }
+    }
+
+    // Legacy overload for backward compatibility
+    fun redeemReward(
+        userId: String,
+        rewardItem: RewardItem,
+        context: Context? = null,
+        onResult: (ResultState<RewardAccount>) -> Unit
+    ) {
+        processRewardRedemption(userId, rewardItem, context) { res ->
+            when (res) {
+                is ResultState.Success -> onResult(ResultState.Success(res.data.first))
+                is ResultState.Error -> onResult(ResultState.Error(message = res.message))
+                is ResultState.Loading -> onResult(ResultState.Loading)
+            }
         }
     }
 
