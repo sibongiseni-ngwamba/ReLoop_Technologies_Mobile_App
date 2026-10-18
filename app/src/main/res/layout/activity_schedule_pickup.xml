@@ -198,12 +198,22 @@
                 android:textColor="@color/text_primary"
                 android:textSize="14sp" />
 
+            <!-- Loading Indicator -->
+            <ProgressBar
+                android:id="@+id/scheduleProgressBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="16dp"
+                android:indeterminateTint="@color/primary_green"
+                android:visibility="gone" />
+
             <!-- Submit Button -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/submitButton"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="16dp"
                 android:background="@drawable/bg_green_button"
                 android:text="Submit Request"
                 android:textAllCaps="false"

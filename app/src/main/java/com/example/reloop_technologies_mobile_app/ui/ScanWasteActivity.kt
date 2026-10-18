@@ -22,6 +22,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import com.example.reloop_technologies_mobile_app.R
+import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
 import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -69,16 +70,16 @@ class ScanWasteActivity : AppCompatActivity() {
             startActivity(Intent(this, RecyclingGuidanceActivity::class.java))
         }
 
-        captureButton.setOnClickListener {
+        captureButton.setSingleClickListener {
             takePhoto()
         }
 
-        retakeButton.setOnClickListener {
+        retakeButton.setSingleClickListener {
             resetCameraView()
         }
 
-        submitScanButton.setOnClickListener {
-            if (isSubmitting) return@setOnClickListener
+        submitScanButton.setSingleClickListener {
+            if (isSubmitting) return@setSingleClickListener
             submitScan()
         }
 
