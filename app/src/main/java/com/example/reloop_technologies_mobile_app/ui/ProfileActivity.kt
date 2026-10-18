@@ -8,6 +8,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.database.UserManager
+import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
 import com.google.firebase.auth.FirebaseAuth
 
 class ProfileActivity : AppCompatActivity() {
@@ -35,7 +36,7 @@ class ProfileActivity : AppCompatActivity() {
             startActivity(Intent(this, RecyclingGuidanceActivity::class.java))
         }
 
-        findViewById<Button>(R.id.logoutButton)?.setOnClickListener {
+        findViewById<Button>(R.id.logoutButton)?.setSingleClickListener {
             FirebaseAuth.getInstance().signOut()
             UserManager.logout(this)
             startActivity(Intent(this, MainActivity::class.java))

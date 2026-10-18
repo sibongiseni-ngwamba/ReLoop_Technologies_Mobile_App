@@ -6,16 +6,30 @@ import android.graphics.Typeface
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
+import com.example.reloop_technologies_mobile_app.backend.ResultState
+import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
+import com.example.reloop_technologies_mobile_app.database.UserManager
+import com.google.firebase.auth.FirebaseAuth
 
 class MyPickupsActivity : AppCompatActivity() {
+
+    private val pickupRepository = PickupRepository()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_my_pickups)
 
         findViewById<View>(R.id.backButton)?.setOnClickListener { finish() }
 
+        setupTabs()
+        setupBottomNav()
+        loadPickups()
+    }
+
+    private fun setupTabs() {
         val tabUpcoming = findViewById<View>(R.id.tabUpcoming)
         val tabHistory = findViewById<View>(R.id.tabHistory)
         val textUpcoming = findViewById<TextView>(R.id.textUpcoming)
@@ -54,8 +68,33 @@ class MyPickupsActivity : AppCompatActivity() {
             textUpcoming?.setTypeface(null, Typeface.NORMAL)
             indicatorUpcoming?.setBackgroundColor(Color.TRANSPARENT)
         }
+    }
 
-        // Bottom Nav
+    private fun loadPickups() {
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+            ?: UserManager.getUserProfile(this).uid
+
+        if (currentUid.isEmpty()) return
+
+        pickupRepository.fetchPickupsForUser(currentUid) { result ->
+            when (result) {
+                is ResultState.Loading -> {
+                    // Show subtle loading or retain current cache view
+                }
+                is ResultState.Success -> {
+                    val pickups = result.data
+                    if (pickups.isEmpty()) {
+                        // Keep initial layout cards or inform user
+                    }
+                }
+                is ResultState.Error -> {
+                    Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun setupBottomNav() {
         findViewById<View>(R.id.navHome)?.setOnClickListener {
             startActivity(Intent(this, HomeActivity::class.java))
         }

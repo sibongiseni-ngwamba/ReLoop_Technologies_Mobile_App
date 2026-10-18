@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.database.UserData
 import com.example.reloop_technologies_mobile_app.database.UserManager
+import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
@@ -50,7 +51,7 @@ class SignUpActivity : AppCompatActivity() {
             finish()
         }
 
-        signUpButton?.setOnClickListener {
+        signUpButton?.setSingleClickListener {
             val name = nameInput?.text?.toString()?.trim() ?: ""
             val email = emailInput?.text?.toString()?.trim() ?: ""
             val phone = phoneInput?.text?.toString()?.trim() ?: ""
@@ -96,7 +97,7 @@ class SignUpActivity : AppCompatActivity() {
 
             if (!isValid) {
                 Toast.makeText(this, "Please fix the errors above", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+                return@setSingleClickListener
             }
 
             // Start Registration UI State
