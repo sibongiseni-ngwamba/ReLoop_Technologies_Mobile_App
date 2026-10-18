@@ -19,7 +19,6 @@ import com.example.reloop_technologies_mobile_app.backend.repositories.UserRepos
 import com.example.reloop_technologies_mobile_app.backend.services.FirebaseAuthService
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
-import com.google.firebase.auth.FirebaseAuth
 
 class ProfileActivity : AppCompatActivity() {
     private val userRepository = UserRepository()

@@ -8,150 +8,43 @@ import com.example.reloop_technologies_mobile_app.backend.models.RedemptionLog
 import com.example.reloop_technologies_mobile_app.backend.models.RewardAccount
 import com.example.reloop_technologies_mobile_app.backend.models.RewardItem
 import com.example.reloop_technologies_mobile_app.backend.services.FirestoreService
-import org.json.JSONArray
-import org.json.JSONObject
 
 class RewardsRepository(
     private val firestoreService: FirestoreService = FirestoreService()
 ) {
-    private companion object {
-        const val PREF_NAME = "reloop_rewards_prefs"
-        const val KEY_ACCOUNT_PREFIX = "reward_account_"
-        const val KEY_TRANSACTIONS_PREFIX = "reward_transactions_"
-        const val KEY_REDEMPTIONS_PREFIX = "reward_redemptions_"
-    }
+    private val prefsName = "reloop_rewards_cache"
 
     private fun getSharedPreferences(context: Context) =
-        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 
-    // Local SharedPreferences Persistence Helpers
+    fun getLocalAccount(context: Context, userId: String): RewardAccount? {
+        val prefs = getSharedPreferences(context)
+        if (!prefs.contains("points_$userId")) return null
+        val pts = prefs.getInt("points_$userId", 1200)
+        val earned = prefs.getInt("earned_$userId", 1200)
+        val redeemed = prefs.getInt("redeemed_$userId", 0)
+        return RewardAccount(userId = userId, pointsBalance = pts, totalEarned = earned, totalRedeemed = redeemed)
+    }
+
     fun saveAccountLocally(context: Context, account: RewardAccount) {
-        if (account.userId.isEmpty()) return
-        val obj = JSONObject().apply {
-            put("userId", account.userId)
-            put("pointsBalance", account.pointsBalance)
-            put("totalEarned", account.totalEarned)
-            put("totalRedeemed", account.totalRedeemed)
-            put("lastUpdated", account.lastUpdated)
-        }
         getSharedPreferences(context).edit()
-            .putString(KEY_ACCOUNT_PREFIX + account.userId, obj.toString())
-            .apply()
-    }
-
-    fun getAccountLocally(context: Context, userId: String): RewardAccount? {
-        if (userId.isEmpty()) return null
-        val jsonStr = getSharedPreferences(context).getString(KEY_ACCOUNT_PREFIX + userId, null)
-            ?: return null
-        return try {
-            val obj = JSONObject(jsonStr)
-            RewardAccount(
-                userId = obj.optString("userId", userId),
-                pointsBalance = obj.optInt("pointsBalance", 1200),
-                totalEarned = obj.optInt("totalEarned", 1200),
-                totalRedeemed = obj.optInt("totalRedeemed", 0),
-                lastUpdated = obj.optLong("lastUpdated", System.currentTimeMillis())
-            )
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    fun saveTransactionsLocally(context: Context, userId: String, transactions: List<PointsTransaction>) {
-        if (userId.isEmpty()) return
-        val array = JSONArray()
-        for (tx in transactions) {
-            val obj = JSONObject().apply {
-                put("transactionId", tx.transactionId)
-                put("userId", tx.userId)
-                put("transactionType", tx.transactionType)
-                put("points", tx.points)
-                put("relatedId", tx.relatedId ?: "")
-                put("description", tx.description)
-                put("createdAt", tx.createdAt)
-            }
-            array.put(obj)
-        }
-        getSharedPreferences(context).edit()
-            .putString(KEY_TRANSACTIONS_PREFIX + userId, array.toString())
+            .putInt("points_${account.userId}", account.pointsBalance)
+            .putInt("earned_${account.userId}", account.totalEarned)
+            .putInt("redeemed_${account.userId}", account.totalRedeemed)
             .apply()
     }
 
     fun getTransactionsLocally(context: Context, userId: String): List<PointsTransaction> {
-        if (userId.isEmpty()) return emptyList()
-        val jsonStr = getSharedPreferences(context).getString(KEY_TRANSACTIONS_PREFIX + userId, null)
-            ?: return emptyList()
-        return try {
-            val array = JSONArray(jsonStr)
-            val list = mutableListOf<PointsTransaction>()
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                list.add(
-                    PointsTransaction(
-                        transactionId = obj.optString("transactionId"),
-                        userId = obj.optString("userId", userId),
-                        transactionType = obj.optString("transactionType", "earn"),
-                        points = obj.optInt("points", 0),
-                        relatedId = obj.optString("relatedId").ifEmpty { null },
-                        description = obj.optString("description"),
-                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                    )
-                )
-            }
-            list
-        } catch (e: Exception) {
-            emptyList()
-        }
+        return emptyList()
     }
 
-    fun saveRedemptionLogsLocally(context: Context, userId: String, logs: List<RedemptionLog>) {
-        if (userId.isEmpty()) return
-        val array = JSONArray()
-        for (log in logs) {
-            val obj = JSONObject().apply {
-                put("redemptionId", log.redemptionId)
-                put("userId", log.userId)
-                put("rewardItemId", log.rewardItemId)
-                put("pointsUsed", log.pointsUsed)
-                put("voucherCode", log.voucherCode ?: "")
-                put("status", log.status)
-                put("redeemedAt", log.redeemedAt)
-                put("createdAt", log.createdAt)
-            }
-            array.put(obj)
-        }
-        getSharedPreferences(context).edit()
-            .putString(KEY_REDEMPTIONS_PREFIX + userId, array.toString())
-            .apply()
-    }
+    fun saveTransactionsLocally(context: Context, userId: String, list: List<PointsTransaction>) {}
 
     fun getRedemptionLogsLocally(context: Context, userId: String): List<RedemptionLog> {
-        if (userId.isEmpty()) return emptyList()
-        val jsonStr = getSharedPreferences(context).getString(KEY_REDEMPTIONS_PREFIX + userId, null)
-            ?: return emptyList()
-        return try {
-            val array = JSONArray(jsonStr)
-            val list = mutableListOf<RedemptionLog>()
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                list.add(
-                    RedemptionLog(
-                        redemptionId = obj.optString("redemptionId"),
-                        userId = obj.optString("userId", userId),
-                        rewardItemId = obj.optString("rewardItemId"),
-                        pointsUsed = obj.optInt("pointsUsed", 0),
-                        voucherCode = obj.optString("voucherCode").ifEmpty { null },
-                        status = obj.optString("status", "Redeemed"),
-                        redeemedAt = obj.optLong("redeemedAt", System.currentTimeMillis()),
-                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                    )
-                )
-            }
-            list
-        } catch (e: Exception) {
-            emptyList()
-        }
+        return emptyList()
     }
+
+    fun saveRedemptionLogsLocally(context: Context, userId: String, list: List<RedemptionLog>) {}
 
     fun fetchRewardAccount(
         userId: String,
@@ -163,33 +56,25 @@ class RewardsRepository(
             return
         }
 
-        val localAccount = context?.let { getAccountLocally(it, userId) }
-        if (localAccount != null) {
-            onResult(ResultState.Success(localAccount))
-        } else {
-            onResult(ResultState.Loading)
+        context?.let { ctx ->
+            getLocalAccount(ctx, userId)?.let { localAccount ->
+                onResult(ResultState.Success(localAccount))
+            }
         }
 
-        firestoreService.db.collection("rewards").document(userId).get()
-            .addOnSuccessListener { doc ->
-                if (doc.exists()) {
-                    val account = doc.toObject(RewardAccount::class.java) ?: RewardAccount(userId = userId)
-                    context?.let { saveAccountLocally(it, account) }
-                    onResult(ResultState.Success(account))
-                } else {
-                    val defaultAccount = localAccount ?: RewardAccount(
-                        userId = userId,
-                        pointsBalance = 1200,
-                        totalEarned = 1200,
-                        totalRedeemed = 0
-                    )
-                    saveRewardAccount(defaultAccount, context) {}
-                    onResult(ResultState.Success(defaultAccount))
-                }
+        firestoreService.db.collection("rewards").document(userId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val account = snapshot.toObject(RewardAccount::class.java)
+                val finalAccount = account ?: RewardAccount(userId = userId, pointsBalance = 1200, totalEarned = 1200)
+
+                context?.let { ctx -> saveAccountLocally(ctx, finalAccount) }
+                onResult(ResultState.Success(finalAccount))
             }
             .addOnFailureListener {
-                val account = localAccount ?: RewardAccount(userId = userId)
-                onResult(ResultState.Success(account))
+                val cached = context?.let { ctx -> getLocalAccount(ctx, userId) }
+                    ?: RewardAccount(userId = userId, pointsBalance = 1200, totalEarned = 1200)
+                onResult(ResultState.Success(cached))
             }
     }
 
@@ -202,14 +87,38 @@ class RewardsRepository(
             onResult(ResultState.Error(message = "User ID is empty."))
             return
         }
-        context?.let { saveAccountLocally(it, account) }
 
-        firestoreService.db.collection("rewards").document(account.userId).set(account)
+        context?.let { ctx -> saveAccountLocally(ctx, account) }
+
+        firestoreService.db.collection("rewards").document(account.userId)
+            .set(account)
             .addOnSuccessListener {
                 onResult(ResultState.Success(true))
             }
-            .addOnFailureListener { exception ->
-                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
+            .addOnFailureListener {
+                onResult(ResultState.Success(true))
+            }
+    }
+
+    fun addPointsTransaction(
+        tx: PointsTransaction,
+        context: Context? = null,
+        onResult: (ResultState<String>) -> Unit = {}
+    ) {
+        if (tx.userId.isEmpty()) {
+            onResult(ResultState.Error(message = "User ID is empty."))
+            return
+        }
+
+        val docRef = firestoreService.db.collection("pointsTransactions").document()
+        val newTx = tx.copy(transactionId = docRef.id)
+
+        docRef.set(newTx)
+            .addOnSuccessListener {
+                onResult(ResultState.Success(docRef.id))
+            }
+            .addOnFailureListener {
+                onResult(ResultState.Success(newTx.transactionId))
             }
     }
 
@@ -223,33 +132,18 @@ class RewardsRepository(
             return
         }
 
-        val localTxList = context?.let { getTransactionsLocally(it, userId) } ?: emptyList()
-        if (localTxList.isNotEmpty()) {
-            onResult(ResultState.Success(localTxList.sortedByDescending { it.createdAt }))
-        } else {
-            onResult(ResultState.Loading)
-        }
-
         firestoreService.db.collection("pointsTransactions")
             .whereEqualTo("userId", userId)
             .get()
             .addOnSuccessListener { snapshot ->
-                var transactions = snapshot.toObjects(PointsTransaction::class.java)
-                if (transactions.isEmpty()) {
-                    transactions = createInitialDefaultTransactions(userId)
-                    transactions.forEach { tx ->
-                        firestoreService.db.collection("pointsTransactions").document(tx.transactionId).set(tx)
-                    }
-                }
-                val sorted = transactions.sortedByDescending { it.createdAt }
-                context?.let { saveTransactionsLocally(it, userId, sorted) }
+                val list = snapshot.toObjects(PointsTransaction::class.java)
+                val finalList = list.ifEmpty { createInitialDefaultTransactions(userId) }
+                val sorted = finalList.sortedByDescending { it.createdAt }
                 onResult(ResultState.Success(sorted))
             }
             .addOnFailureListener {
-                val fallback = if (localTxList.isNotEmpty()) localTxList else createInitialDefaultTransactions(userId)
-                val sorted = fallback.sortedByDescending { it.createdAt }
-                context?.let { saveTransactionsLocally(it, userId, sorted) }
-                onResult(ResultState.Success(sorted))
+                val fallback = createInitialDefaultTransactions(userId)
+                onResult(ResultState.Success(fallback.sortedByDescending { it.createdAt }))
             }
     }
 
@@ -258,61 +152,30 @@ class RewardsRepository(
         val dayMs = 86400000L
         return listOf(
             PointsTransaction(
-                transactionId = "tx_pickup_1",
-                userId = userId,
-                transactionType = "earn",
-                points = 150,
-                relatedId = "pickup_completed_1",
-                description = "Points Earned: Completed Pickup - Glass Bottles, Metals",
-                createdAt = now - (2 * dayMs)
-            ),
-            PointsTransaction(
-                transactionId = "tx_scan_1",
-                userId = userId,
-                transactionType = "earn",
-                points = 50,
-                relatedId = "scan_1",
-                description = "AI Waste Scan Bonus: Plastic Bottle",
-                createdAt = now - (5 * dayMs)
-            ),
-            PointsTransaction(
-                transactionId = "tx_welcome_1",
+                transactionId = "tx_001",
                 userId = userId,
                 transactionType = "earn",
                 points = 1000,
-                relatedId = "signup",
-                description = "Welcome Eco Champion Bonus",
+                description = "Welcome Eco Signup Bonus",
                 createdAt = now - (10 * dayMs)
+            ),
+            PointsTransaction(
+                transactionId = "tx_002",
+                userId = userId,
+                transactionType = "earn",
+                points = 150,
+                description = "Completed Pickup: Plastic Bottles & Metal Cans",
+                createdAt = now - (5 * dayMs)
+            ),
+            PointsTransaction(
+                transactionId = "tx_003",
+                userId = userId,
+                transactionType = "earn",
+                points = 50,
+                description = "AI Scan Verification Bonus",
+                createdAt = now - (2 * dayMs)
             )
         )
-    }
-
-    fun addPointsTransaction(
-        transaction: PointsTransaction,
-        context: Context? = null,
-        onResult: (ResultState<String>) -> Unit = {}
-    ) {
-        val docRef = if (transaction.transactionId.isNotEmpty()) {
-            firestoreService.db.collection("pointsTransactions").document(transaction.transactionId)
-        } else {
-            firestoreService.db.collection("pointsTransactions").document()
-        }
-        val newTx = transaction.copy(transactionId = docRef.id)
-
-        context?.let {
-            val currentList = getTransactionsLocally(it, newTx.userId).toMutableList()
-            currentList.removeAll { item -> item.transactionId == newTx.transactionId }
-            currentList.add(0, newTx)
-            saveTransactionsLocally(it, newTx.userId, currentList)
-        }
-
-        docRef.set(newTx)
-            .addOnSuccessListener {
-                onResult(ResultState.Success(docRef.id))
-            }
-            .addOnFailureListener {
-                onResult(ResultState.Success(docRef.id))
-            }
     }
 
     fun syncCompletedPickupsAndAwardPoints(
@@ -321,32 +184,28 @@ class RewardsRepository(
         context: Context? = null,
         onResult: (ResultState<RewardAccount>) -> Unit
     ) {
-        if (userId.isEmpty()) return
+        if (userId.isEmpty()) {
+            onResult(ResultState.Error(message = "User ID is empty."))
+            return
+        }
 
         fetchPointsTransactions(userId, context) { txResult ->
             val existingTxList = if (txResult is ResultState.Success) txResult.data else emptyList()
-            val existingRelatedIds = existingTxList.mapNotNull { it.relatedId }.toSet()
-
-            val completedPickups = pickups.filter {
-                it.status.equals("Completed", ignoreCase = true)
-            }
+            val existingPickupIds = existingTxList.mapNotNull { it.relatedId }.toSet()
 
             var pointsToAdd = 0
             val newTransactions = mutableListOf<PointsTransaction>()
 
+            val completedPickups = pickups.filter { it.status == "Completed" }
+
             for (pickup in completedPickups) {
-                if (pickup.pickupId.isNotEmpty() && !existingRelatedIds.contains(pickup.pickupId)) {
+                if (pickup.pickupId.isNotEmpty() && !existingPickupIds.contains(pickup.pickupId)) {
                     val awardAmount = 150
                     pointsToAdd += awardAmount
-                    val wasteLabel = if (pickup.wasteTypes.isNotEmpty()) {
-                        pickup.wasteTypes.joinToString(", ")
-                    } else if (pickup.wasteType.isNotEmpty()) {
-                        pickup.wasteType
-                    } else {
-                        "Recyclables"
-                    }
+
+                    val wasteLabel = pickup.wasteType.ifEmpty { "Recyclables" }
                     val tx = PointsTransaction(
-                        transactionId = "tx_pickup_" + pickup.pickupId,
+                        transactionId = "tx_pickup_${pickup.pickupId}",
                         userId = userId,
                         transactionType = "earn",
                         points = awardAmount,
@@ -510,16 +369,6 @@ class RewardsRepository(
 
             context?.let { ctx ->
                 saveAccountLocally(ctx, updatedAccount)
-
-                val currentTxList = getTransactionsLocally(ctx, userId).toMutableList()
-                currentTxList.removeAll { item -> item.transactionId == pointsTx.transactionId }
-                currentTxList.add(0, pointsTx)
-                saveTransactionsLocally(ctx, userId, currentTxList)
-
-                val currentLogs = getRedemptionLogsLocally(ctx, userId).toMutableList()
-                currentLogs.removeAll { item -> item.redemptionId == redemptionLog.redemptionId }
-                currentLogs.add(0, redemptionLog)
-                saveRedemptionLogsLocally(ctx, userId, currentLogs)
             }
 
             val batch = firestoreService.db.batch()
