@@ -105,7 +105,7 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.logoutButton)?.setSingleClickListener {
-            authService.signOut()
+            authService.signOut(this)
             UserManager.logout(this)
             startActivity(Intent(this, MainActivity::class.java))
             finishAffinity()
