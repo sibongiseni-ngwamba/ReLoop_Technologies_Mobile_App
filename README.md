@@ -68,3 +68,17 @@ The application models the following Firestore collections:
 - Firebase Firestore & Analytics
 - XML Layouts & Material Design
 - SharedPreferences Session Storage
+
+---
+
+## Team
+
+Work is on GitHub under [sibongiseni-ngwamba/ReLoop_Technologies_Mobile_App](https://github.com/sibongiseni-ngwamba/ReLoop_Technologies_Mobile_App).
+
+| GitHub | Name |
+| --- | --- |
+| [sibongiseni-ngwamba](https://github.com/sibongiseni-ngwamba) | Sibongiseni Ngwamaba |
+| [Thokozani Masondo](https://github.com/Globoysosa) | Thokozani Masondo |
+| [tirisano-trigga](https://github.com/tirisanomolaolwe-byte) | Tirisano Molaolwe |
+| [Katleho Kwakwari](https://github.com/Katleho-1) | Katleho Kwakwari |
+| [Katlego Makhuba](https://github.com/st10366193) | Katlego Makhuba |
