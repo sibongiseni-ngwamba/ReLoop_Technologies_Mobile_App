@@ -7,6 +7,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
+import com.example.reloop_technologies_mobile_app.backend.repositories.NotificationRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.UserRepository
@@ -18,6 +19,7 @@ class HomeActivity : AppCompatActivity() {
     private val userRepository = UserRepository()
     private val rewardsRepository = RewardsRepository()
     private val pickupRepository = PickupRepository()
+    private val notificationRepository = NotificationRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,6 +103,15 @@ class HomeActivity : AppCompatActivity() {
                         // Update recent activity / pickup display if needed
                     }
                     else -> {}
+                }
+            }
+
+            // Fetch Notifications for Unread Badge Indicator
+            notificationRepository.fetchNotificationsForUser(userId) { result ->
+                if (result is ResultState.Success) {
+                    val hasUnread = result.data.any { !it.isRead }
+                    findViewById<View>(R.id.notificationBadgeDot)?.visibility =
+                        if (hasUnread) View.VISIBLE else View.GONE
                 }
             }
         }
