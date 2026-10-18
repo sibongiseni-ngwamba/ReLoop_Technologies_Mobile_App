@@ -1,5 +1,6 @@
 package com.example.reloop_technologies_mobile_app
 
+import com.example.reloop_technologies_mobile_app.backend.models.AgentModel
 import com.example.reloop_technologies_mobile_app.backend.models.NotificationModel
 import com.example.reloop_technologies_mobile_app.backend.models.PickupModel
 import com.example.reloop_technologies_mobile_app.backend.models.RedemptionLog
@@ -95,5 +96,25 @@ class ModelsTest {
         assertEquals(0.5, wasteLog.weightKg, 0.001)
         assertEquals("Plastic Bottle", wasteLog.modelLabel)
         assertEquals(0.95, wasteLog.confidenceScore ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun testAgentModel() {
+        val agent = AgentModel(
+            agentId = "ag_001",
+            userId = "usr_agent_100",
+            name = "Sipho Dlamini",
+            contactNumber = "0821234567",
+            assignedZone = "Zone A",
+            isAvailable = true,
+            isActive = true
+        )
+        assertEquals("ag_001", agent.agentId)
+        assertEquals("usr_agent_100", agent.userId)
+        assertEquals("Sipho Dlamini", agent.name)
+        assertEquals("0821234567", agent.contactNumber)
+        assertEquals("Zone A", agent.assignedZone)
+        assertTrue(agent.isAvailable)
+        assertTrue(agent.isActive)
     }
 }

@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+
+    function isAgent() {
+      return isSignedIn() && (getUserData().role == 'agent' || getUserData().role == 'collector');
+    }
+
+    // Users Collection: Users can read and update their own profile; Admins can manage all
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Agents Collection: Agents & Admins can manage agent profiles; Users can view
+    match /agents/{agentId} {
+      allow read: if isSignedIn();
+      allow write: if isAgent() || isAdmin();
+    }
+
+    // Pickups Collection: Users manage their own pickups; Agents and Admins can access and update status
+    match /pickups/{pickupId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAgent() || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAgent() || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Rewards Collection: User reward balances are private to the account holder
+    match /rewards/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // Reward Items: Public read for active items; Write restricted to Admins
+    match /rewardItems/{itemId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Redemption Logs: Private to the redeeming user or Admin
+    match /redemptionLogs/{redemptionId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Points Transactions: Private audit trail for the user or Admin
+    match /pointsTransactions/{transactionId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Waste Logs: Users can log and view their own waste scans
+    match /wasteLogs/{wasteLogId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAgent() || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    // Waste Categories: Public read for signed-in users; Write restricted to Admins
+    match /wasteCategories/{categoryId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Guidance Content: Public read for signed-in users; Write restricted to Admins
+    match /guidanceContent/{guidanceId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Notifications: Private to recipient user
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
