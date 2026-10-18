@@ -3,6 +3,7 @@ package com.example.reloop_technologies_mobile_app.backend.services
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 
 class FirebaseAuthService(
@@ -78,6 +79,24 @@ class FirebaseAuthService(
             }
             .addOnFailureListener { exception ->
                 val msg = exception.localizedMessage ?: "Failed to send password reset email."
+                onResult(ResultState.Error(exception = exception, message = msg))
+            }
+    }
+
+    fun signInWithGoogleIdToken(idToken: String, onResult: (ResultState<FirebaseUser>) -> Unit) {
+        onResult(ResultState.Loading)
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.signInWithCredential(credential)
+            .addOnSuccessListener { authResult ->
+                val user = authResult.user
+                if (user != null) {
+                    onResult(ResultState.Success(user))
+                } else {
+                    onResult(ResultState.Error(message = "Google SSO sign-in succeeded but user session is null."))
+                }
+            }
+            .addOnFailureListener { exception ->
+                val msg = exception.localizedMessage ?: "Google SSO authentication failed."
                 onResult(ResultState.Error(exception = exception, message = msg))
             }
     }
