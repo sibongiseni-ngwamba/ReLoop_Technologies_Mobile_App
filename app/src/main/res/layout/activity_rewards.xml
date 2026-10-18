@@ -83,7 +83,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="1,200 pts"
+                            android:text="0 pts"
                             android:textColor="@color/primary_green"
                             android:textSize="28sp"
                             android:textStyle="bold" />
@@ -96,7 +96,7 @@
                         android:background="@drawable/bg_badge_gold"
                         android:paddingHorizontal="12dp"
                         android:paddingVertical="6dp"
-                        android:text="Level 2 Eco Champion"
+                        android:text="Level 1 Eco Starter"
                         android:textColor="#D97706"
                         android:textSize="12sp"
                         android:textStyle="bold" />
@@ -130,7 +130,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="1,200 pts"
+                            android:text="0 pts"
                             android:textColor="@color/primary_green"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -173,7 +173,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Progress to Level 3 (800 / 2000 pts)"
+                    android:text="Progress to Level 2"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 
@@ -184,7 +184,7 @@
                     android:layout_height="8dp"
                     android:layout_marginTop="6dp"
                     android:max="2000"
-                    android:progress="1200"
+                    android:progress="0"
                     android:progressTint="@color/primary_green" />
             </LinearLayout>
 

@@ -20,8 +20,8 @@ class RewardsRepository(
     fun getLocalAccount(context: Context, userId: String): RewardAccount? {
         val prefs = getSharedPreferences(context)
         if (!prefs.contains("points_$userId")) return null
-        val pts = prefs.getInt("points_$userId", 1200)
-        val earned = prefs.getInt("earned_$userId", 1200)
+        val pts = prefs.getInt("points_$userId", 0)
+        val earned = prefs.getInt("earned_$userId", 0)
         val redeemed = prefs.getInt("redeemed_$userId", 0)
         return RewardAccount(userId = userId, pointsBalance = pts, totalEarned = earned, totalRedeemed = redeemed)
     }
@@ -56,24 +56,19 @@ class RewardsRepository(
             return
         }
 
-        context?.let { ctx ->
-            getLocalAccount(ctx, userId)?.let { localAccount ->
-                onResult(ResultState.Success(localAccount))
-            }
-        }
-
         firestoreService.db.collection("rewards").document(userId)
             .get()
             .addOnSuccessListener { snapshot ->
-                val account = snapshot.toObject(RewardAccount::class.java)
-                val finalAccount = account ?: RewardAccount(userId = userId, pointsBalance = 1200, totalEarned = 1200)
+                val account = try { snapshot.toObject(RewardAccount::class.java) } catch (_: RuntimeException) { null }
+                val finalAccount = if (!snapshot.exists()) RewardAccount(userId = userId)
+                    else (account ?: context?.let { getLocalAccount(it, userId) } ?: RewardAccount(userId = userId)).copy(userId = userId)
 
                 context?.let { ctx -> saveAccountLocally(ctx, finalAccount) }
                 onResult(ResultState.Success(finalAccount))
             }
             .addOnFailureListener {
                 val cached = context?.let { ctx -> getLocalAccount(ctx, userId) }
-                    ?: RewardAccount(userId = userId, pointsBalance = 1200, totalEarned = 1200)
+                    ?: RewardAccount(userId = userId)
                 onResult(ResultState.Success(cached))
             }
     }
@@ -88,15 +83,14 @@ class RewardsRepository(
             return
         }
 
-        context?.let { ctx -> saveAccountLocally(ctx, account) }
-
         firestoreService.db.collection("rewards").document(account.userId)
             .set(account)
             .addOnSuccessListener {
+                context?.let { ctx -> saveAccountLocally(ctx, account) }
                 onResult(ResultState.Success(true))
             }
-            .addOnFailureListener {
-                onResult(ResultState.Success(true))
+            .addOnFailureListener { exception ->
+                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
             }
     }
 
@@ -110,15 +104,19 @@ class RewardsRepository(
             return
         }
 
-        val docRef = firestoreService.db.collection("pointsTransactions").document()
+        val docRef = if (tx.transactionId.isNotEmpty()) {
+            firestoreService.db.collection("pointsTransactions").document(tx.transactionId)
+        } else {
+            firestoreService.db.collection("pointsTransactions").document()
+        }
         val newTx = tx.copy(transactionId = docRef.id)
 
         docRef.set(newTx)
             .addOnSuccessListener {
                 onResult(ResultState.Success(docRef.id))
             }
-            .addOnFailureListener {
-                onResult(ResultState.Success(newTx.transactionId))
+            .addOnFailureListener { exception ->
+                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
             }
     }
 
@@ -136,14 +134,15 @@ class RewardsRepository(
             .whereEqualTo("userId", userId)
             .get()
             .addOnSuccessListener { snapshot ->
-                val list = snapshot.toObjects(PointsTransaction::class.java)
-                val finalList = list.ifEmpty { createInitialDefaultTransactions(userId) }
-                val sorted = finalList.sortedByDescending { it.createdAt }
-                onResult(ResultState.Success(sorted))
+                try {
+                    val sorted = snapshot.toObjects(PointsTransaction::class.java).sortedByDescending { it.createdAt }
+                    onResult(ResultState.Success(sorted))
+                } catch (exception: RuntimeException) {
+                    onResult(ResultState.Error(exception = exception, message = "Could not read points history."))
+                }
             }
-            .addOnFailureListener {
-                val fallback = createInitialDefaultTransactions(userId)
-                onResult(ResultState.Success(fallback.sortedByDescending { it.createdAt }))
+            .addOnFailureListener { exception ->
+                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
             }
     }
 
@@ -190,7 +189,11 @@ class RewardsRepository(
         }
 
         fetchPointsTransactions(userId, context) { txResult ->
-            val existingTxList = if (txResult is ResultState.Success) txResult.data else emptyList()
+            if (txResult !is ResultState.Success) {
+                if (txResult is ResultState.Error) onResult(txResult)
+                return@fetchPointsTransactions
+            }
+            val existingTxList = txResult.data
             val existingPickupIds = existingTxList.mapNotNull { it.relatedId }.toSet()
 
             var pointsToAdd = 0
@@ -218,11 +221,8 @@ class RewardsRepository(
             }
 
             fetchRewardAccount(userId, context) { accountResult ->
-                val currentAccount = if (accountResult is ResultState.Success) {
-                    accountResult.data
-                } else {
-                    RewardAccount(userId = userId)
-                }
+                if (accountResult !is ResultState.Success) return@fetchRewardAccount
+                val currentAccount = accountResult.data
 
                 if (pointsToAdd > 0) {
                     val updatedAccount = currentAccount.copy(
@@ -367,10 +367,6 @@ class RewardsRepository(
                 createdAt = now
             )
 
-            context?.let { ctx ->
-                saveAccountLocally(ctx, updatedAccount)
-            }
-
             val batch = firestoreService.db.batch()
             batch.set(firestoreService.db.collection("rewards").document(userId), updatedAccount)
             batch.set(logRef, redemptionLog)
@@ -383,10 +379,11 @@ class RewardsRepository(
 
             batch.commit()
                 .addOnSuccessListener {
+                    context?.let { ctx -> saveAccountLocally(ctx, updatedAccount) }
                     onResult(ResultState.Success(Pair(updatedAccount, redemptionLog)))
                 }
-                .addOnFailureListener {
-                    onResult(ResultState.Success(Pair(updatedAccount, redemptionLog)))
+                .addOnFailureListener { exception ->
+                    onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
                 }
         }
     }

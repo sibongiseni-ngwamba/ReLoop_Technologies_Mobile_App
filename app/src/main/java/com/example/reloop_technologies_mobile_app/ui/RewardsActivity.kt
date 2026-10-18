@@ -146,12 +146,16 @@ class RewardsActivity : AppCompatActivity() {
 
     private fun getUserId(): String {
         val currentUser = FirebaseAuth.getInstance().currentUser
-        val uid = currentUser?.uid ?: UserManager.getUserProfile(this).uid
-        return uid.ifEmpty { "default_user" }
+        return currentUser?.uid.orEmpty()
     }
 
     private fun loadRewardsData() {
         val userId = getUserId()
+        if (userId.isEmpty()) {
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
         transactionsLoadingBar.visibility = View.VISIBLE
 
         // 1. Fetch Reward Catalogue Items
@@ -200,7 +204,7 @@ class RewardsActivity : AppCompatActivity() {
                     renderTransactions(allTransactions)
                 }
                 is ResultState.Error -> {
-                    allTransactions = rewardsRepository.createInitialDefaultTransactions(userId)
+                    allTransactions = emptyList()
                     renderTransactions(allTransactions)
                 }
                 is ResultState.Loading -> {

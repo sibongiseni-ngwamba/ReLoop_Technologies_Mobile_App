@@ -17,17 +17,16 @@ class PickupRepository(
             .whereEqualTo("userId", userId)
             .get()
             .addOnSuccessListener { snapshot ->
-                val pickups = snapshot.toObjects(PickupModel::class.java)
-                if (pickups.isEmpty()) {
-                    val defaultPickups = getDefaultPickups(userId)
-                    defaultPickups.forEach { p -> schedulePickup(p) {} }
-                    onResult(ResultState.Success(defaultPickups))
-                } else {
-                    onResult(ResultState.Success(pickups))
+                try {
+                    val seededIds = setOf("pickup_completed_1", "pickup_scheduled_1", "pickup_in_progress_1")
+                    onResult(ResultState.Success(snapshot.toObjects(PickupModel::class.java)
+                        .filterNot { it.pickupId in seededIds }))
+                } catch (exception: RuntimeException) {
+                    onResult(ResultState.Error(exception = exception, message = "Could not read pickup records."))
                 }
             }
-            .addOnFailureListener {
-                onResult(ResultState.Success(getDefaultPickups(userId)))
+            .addOnFailureListener { exception ->
+                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
             }
     }
 

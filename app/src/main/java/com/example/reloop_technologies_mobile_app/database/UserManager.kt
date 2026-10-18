@@ -12,6 +12,7 @@ object UserManager {
     private const val KEY_IS_LOGGED_IN = "is_logged_in"
 
     fun saveUserProfile(context: Context, userData: UserData) {
+        if (userData.uid.isBlank()) return
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         prefs.edit().apply {
             putString(KEY_UID, userData.uid)
@@ -24,14 +25,16 @@ object UserManager {
         }
     }
 
-    fun getUserProfile(context: Context): UserData {
+    fun getUserProfile(context: Context, expectedUid: String? = null): UserData {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val uid = prefs.getString(KEY_UID, "").orEmpty()
+        if (expectedUid != null && uid != expectedUid) return UserData(uid = expectedUid)
         return UserData(
-            uid = prefs.getString(KEY_UID, "") ?: "",
-            name = prefs.getString(KEY_NAME, "Alex Morgan") ?: "Alex Morgan",
-            email = prefs.getString(KEY_EMAIL, "alex.morgan@example.com") ?: "alex.morgan@example.com",
-            phone = prefs.getString(KEY_PHONE, "+1 555-0192") ?: "+1 555-0192",
-            address = prefs.getString(KEY_ADDRESS, "123 Eco Green St, Silicon Valley") ?: "123 Eco Green St, Silicon Valley"
+            uid = uid,
+            name = prefs.getString(KEY_NAME, "").orEmpty(),
+            email = prefs.getString(KEY_EMAIL, "").orEmpty(),
+            phone = prefs.getString(KEY_PHONE, "").orEmpty(),
+            address = prefs.getString(KEY_ADDRESS, "").orEmpty()
         )
     }
 

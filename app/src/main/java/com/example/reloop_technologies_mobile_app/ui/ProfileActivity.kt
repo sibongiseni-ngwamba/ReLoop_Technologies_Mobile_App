@@ -15,13 +15,18 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.example.reloop_technologies_mobile_app.backend.models.UserModel
+import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.UserRepository
+import com.example.reloop_technologies_mobile_app.backend.repositories.WasteScanRepository
 import com.example.reloop_technologies_mobile_app.backend.services.FirebaseAuthService
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
+import java.util.Locale
 
 class ProfileActivity : AppCompatActivity() {
     private val userRepository = UserRepository()
+    private val pickupRepository = PickupRepository()
+    private val wasteScanRepository = WasteScanRepository()
     private val authService = FirebaseAuthService()
 
     private var currentUserModel: UserModel = UserModel()
@@ -44,6 +49,11 @@ class ProfileActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (authService.currentUser == null) {
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
         setContentView(R.layout.activity_profile)
 
         bindViews()
@@ -52,7 +62,9 @@ class ProfileActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (isFinishing || authService.currentUser == null) return
         loadUserProfile()
+        loadImpact()
     }
 
     private fun bindViews() {
@@ -115,22 +127,28 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun getUserId(): String {
-        val currentUser = authService.currentUser
-        val uid = currentUser?.uid ?: UserManager.getUserProfile(this).uid
-        return uid.ifEmpty { "default_user" }
+        return authService.currentUser?.uid.orEmpty()
     }
 
     private fun loadUserProfile() {
         val userId = getUserId()
-        val localProfile = UserManager.getUserProfile(this)
+        if (userId.isEmpty()) return
+        val localProfile = UserManager.getUserProfile(this, userId)
 
-        if (localProfile.name.isNotEmpty()) {
-            nameText.text = localProfile.name
-            avatarText.text = localProfile.name.first().uppercase()
-            emailText.text = localProfile.email
-        }
+        val localName = localProfile.name.ifEmpty { authService.currentUser?.displayName.orEmpty() }
+        val nameParts = localName.trim().split(Regex("\\s+"), limit = 2)
+        currentUserModel = UserModel(
+            userId = userId,
+            firstName = nameParts.firstOrNull().orEmpty(),
+            lastName = nameParts.getOrElse(1) { "" },
+            email = authService.currentUser?.email ?: localProfile.email,
+            phoneNumber = localProfile.phone,
+            address = localProfile.address
+        )
+        populateUi(currentUserModel)
 
         userRepository.fetchUserProfile(userId, this) { result ->
+            if (getUserId() != userId || isFinishing) return@fetchUserProfile
             when (result) {
                 is ResultState.Success -> {
                     currentUserModel = result.data
@@ -141,9 +159,35 @@ class ProfileActivity : AppCompatActivity() {
         }
     }
 
+    private fun loadImpact() {
+        val userId = getUserId()
+        if (userId.isEmpty()) return
+        findViewById<TextView>(R.id.plasticSavedText).text = "0 kg"
+        findViewById<TextView>(R.id.itemsScannedText).text = "0"
+        findViewById<TextView>(R.id.pickupsDoneText).text = "0"
+        wasteScanRepository.fetchWasteScansForUser(userId) { result ->
+            if (getUserId() != userId || isFinishing) return@fetchWasteScansForUser
+            if (result is ResultState.Success) {
+                val scans = result.data
+                val plasticKg = scans.filter {
+                    it.wasteCategoryId.contains("plastic", true) || it.modelLabel.orEmpty().contains("plastic", true)
+                }.sumOf { it.weightKg }
+                findViewById<TextView>(R.id.plasticSavedText).text = String.format(Locale.getDefault(), "%.1f kg", plasticKg)
+                findViewById<TextView>(R.id.itemsScannedText).text = scans.size.toString()
+            }
+        }
+        pickupRepository.fetchPickupsForUser(userId) { result ->
+            if (getUserId() != userId || isFinishing) return@fetchPickupsForUser
+            if (result is ResultState.Success) {
+                findViewById<TextView>(R.id.pickupsDoneText).text =
+                    result.data.count { it.status.equals("Completed", true) }.toString()
+            }
+        }
+    }
+
     private fun populateUi(user: UserModel) {
         val firebaseUser = authService.currentUser
-        val email = user.email.ifEmpty { firebaseUser?.email ?: "alex.morgan@example.com" }
+        val email = firebaseUser?.email ?: user.email
 
         nameText.text = user.fullName
         emailText.text = email
@@ -152,21 +196,11 @@ class ProfileActivity : AppCompatActivity() {
             avatarText.text = user.fullName.first().uppercase()
         }
 
-        if (firstNameInput.text.isEmpty() || (firstNameInput.text.toString() != user.firstName)) {
-            firstNameInput.setText(user.firstName)
-        }
-        if (lastNameInput.text.isEmpty() || (lastNameInput.text.toString() != user.lastName)) {
-            lastNameInput.setText(user.lastName)
-        }
-        if (phoneInput.text.isEmpty() || (phoneInput.text.toString() != user.phoneNumber)) {
-            phoneInput.setText(user.phoneNumber)
-        }
-        if (addressInput.text.isEmpty() || (addressInput.text.toString() != user.address)) {
-            addressInput.setText(user.address)
-        }
-        if (profileImageUrlInput.text.isEmpty()) {
-            profileImageUrlInput.setText(user.profileImageUrl ?: "")
-        }
+        if (!firstNameInput.hasFocus()) firstNameInput.setText(user.firstName)
+        if (!lastNameInput.hasFocus()) lastNameInput.setText(user.lastName)
+        if (!phoneInput.hasFocus()) phoneInput.setText(user.phoneNumber)
+        if (!addressInput.hasFocus()) addressInput.setText(user.address)
+        if (!profileImageUrlInput.hasFocus()) profileImageUrlInput.setText(user.profileImageUrl ?: "")
     }
 
     private fun validateAndSaveProfile() {
@@ -195,8 +229,13 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         val userId = getUserId()
+        if (userId.isEmpty()) {
+            Toast.makeText(this, "Session expired. Please log in again.", Toast.LENGTH_SHORT).show()
+            return
+        }
         val updatedUser = currentUserModel.copy(
             userId = userId,
+            email = authService.currentUser?.email ?: currentUserModel.email,
             firstName = firstName,
             lastName = lastName,
             phoneNumber = phone,
@@ -209,16 +248,17 @@ class ProfileActivity : AppCompatActivity() {
         saveProfileButton.isEnabled = false
 
         userRepository.saveUserProfile(updatedUser, this) { result ->
-            saveProgressBar.visibility = View.GONE
-            saveProfileButton.isEnabled = true
-
             when (result) {
                 is ResultState.Success -> {
+                    saveProgressBar.visibility = View.GONE
+                    saveProfileButton.isEnabled = true
                     currentUserModel = updatedUser
                     populateUi(currentUserModel)
                     Toast.makeText(this, "Profile changes saved successfully!", Toast.LENGTH_SHORT).show()
                 }
                 is ResultState.Error -> {
+                    saveProgressBar.visibility = View.GONE
+                    saveProfileButton.isEnabled = true
                     Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
                 }
                 is ResultState.Loading -> {}
@@ -289,7 +329,7 @@ class ProfileActivity : AppCompatActivity() {
 
     private fun sendPasswordReset() {
         val firebaseUser = authService.currentUser
-        val email = currentUserModel.email.ifEmpty { firebaseUser?.email ?: "" }
+        val email = firebaseUser?.email ?: currentUserModel.email
 
         if (email.isEmpty()) {
             Toast.makeText(this, "No email found for this account.", Toast.LENGTH_SHORT).show()
