@@ -2,6 +2,7 @@ package com.example.reloop_technologies_mobile_app
 
 import com.example.reloop_technologies_mobile_app.backend.models.UserModel
 import com.example.reloop_technologies_mobile_app.backend.models.UserProfileMapper
+import com.example.reloop_technologies_mobile_app.backend.models.UserRole
 import com.example.reloop_technologies_mobile_app.database.UserData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -51,6 +52,35 @@ class AuthServiceTest {
         assertFalse(residentUser.role == "admin" || residentUser.role == "agent")
         assertTrue(agentUser.role == "agent")
         assertTrue(adminUser.role == "admin")
+
+        val residentRole = residentUser.userRole
+        val agentRole = agentUser.userRole
+        val adminRole = adminUser.role.let { UserRole.fromString(it) }
+
+        assertTrue(residentRole.canSchedulePickup())
+        assertFalse(residentRole.canManageAllPickups())
+        assertFalse(residentRole.canManageUsers())
+
+        assertTrue(agentRole.canManageAllPickups())
+        assertTrue(agentRole.canUpdatePickupStatus())
+        assertFalse(agentRole.canManageUsers())
+
+        assertTrue(adminRole.canManageAllPickups())
+        assertTrue(adminRole.canUpdatePickupStatus())
+        assertTrue(adminRole.canManageUsers())
+    }
+
+    @Test
+    fun testUserRoleParsing() {
+        val r1 = UserRole.fromString("resident")
+        val r2 = UserRole.fromString("collector")
+        val r3 = UserRole.fromString("administrator")
+        val r4 = UserRole.fromString(null)
+
+        assertEquals(UserRole.RESIDENT, r1)
+        assertEquals(UserRole.AGENT, r2)
+        assertEquals(UserRole.ADMIN, r3)
+        assertEquals(UserRole.RESIDENT, r4)
     }
 
     @Test

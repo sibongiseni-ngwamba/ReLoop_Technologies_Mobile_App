@@ -8,6 +8,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
+import com.example.reloop_technologies_mobile_app.backend.models.UserRole
 import com.example.reloop_technologies_mobile_app.backend.repositories.NotificationRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
@@ -62,7 +63,8 @@ class HomeActivity : AppCompatActivity() {
 
         val displayName = localProfile.name.ifEmpty { currentUser.displayName.orEmpty() }
         val firstName = displayName.trim().split(" ").firstOrNull().orEmpty().ifEmpty { "there" }
-        greetingView.text = "Hi, $firstName!"
+        val localRole = UserRole.fromString(localProfile.role)
+        greetingView.text = if (localRole.isResident) "Hi, $firstName!" else "Hi, $firstName (${localRole.displayName})"
         avatarView.text = displayName.firstOrNull()?.uppercase() ?: "?"
         pointsBalanceView.text = "${rewardsRepository.getLocalAccount(this, userId)?.pointsBalance ?: 0} pts"
 
@@ -75,7 +77,7 @@ class HomeActivity : AppCompatActivity() {
                         val user = result.data
                         if (user.firstName.isNotEmpty()) {
                             val firstName = user.firstName
-                            greetingView?.text = "Hi, $firstName!"
+                            greetingView?.text = if (user.userRole.isResident) "Hi, $firstName!" else "Hi, $firstName (${user.userRole.displayName})"
                             avatarView?.text = firstName.first().uppercase()
                         }
                     }
@@ -96,7 +98,7 @@ class HomeActivity : AppCompatActivity() {
             }
 
             // Fetch Pickups & Recent Activity
-            pickupRepository.fetchPickupsForUser(userId) { result ->
+            pickupRepository.fetchPickupsForUser(userId, localProfile.role) { result ->
                 when (result) {
                     is ResultState.Success -> {
                         val pickups = result.data
