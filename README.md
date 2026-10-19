@@ -17,6 +17,7 @@ The application uses Firebase Authentication and Firebase Firestore as its prima
 ## Project Diagram Structure
 
 [![Architecture diagram of sibongiseni-ngwamba/reloop_technologies_mobile_app](https://gitdiagram.com/sibongiseni-ngwamba/reloop_technologies_mobile_app/diagram.png)](https://gitdiagram.com/sibongiseni-ngwamba/reloop_technologies_mobile_app?utm_source=readme&utm_medium=picture)
+
 ---
 
 ## Backend Integration & Database Schema (Firebase Firestore ERD)
