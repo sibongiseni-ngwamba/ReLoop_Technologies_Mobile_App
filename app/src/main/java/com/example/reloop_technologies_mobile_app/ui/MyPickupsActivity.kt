@@ -16,10 +16,12 @@ import androidx.core.content.ContextCompat
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.example.reloop_technologies_mobile_app.backend.models.PickupModel
+import com.example.reloop_technologies_mobile_app.backend.models.UserRole
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -94,13 +96,16 @@ class MyPickupsActivity : AppCompatActivity() {
 
         if (currentUid.isEmpty()) return
 
-        pickupRepository.fetchPickupsForUser(currentUid) { result ->
+        val localProfile = UserManager.getUserProfile(this, currentUid)
+        val userRole = UserRole.fromString(localProfile.role)
+
+        pickupRepository.fetchPickupsForUser(currentUid, userRole.roleKey) { result ->
             when (result) {
                 is ResultState.Loading -> {
                     // Retain view state while loading
                 }
                 is ResultState.Success -> {
-                    renderPickupsList(result.data)
+                    renderPickupsList(result.data, userRole)
                 }
                 is ResultState.Error -> {
                     Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
@@ -110,7 +115,10 @@ class MyPickupsActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderPickupsList(pickups: List<PickupModel>) {
+    private fun renderPickupsList(
+        pickups: List<PickupModel>,
+        userRole: UserRole = UserRole.RESIDENT
+    ) {
         val upcomingList = pickups.filter { it.status == "Scheduled" || it.status == "In Progress" }
             .sortedBy { it.scheduledDate }
         val historyList = pickups.filter { it.status == "Completed" || it.status == "Cancelled" }
@@ -119,7 +127,7 @@ class MyPickupsActivity : AppCompatActivity() {
         upcomingContainer.removeAllViews()
         if (upcomingList.isNotEmpty()) {
             upcomingList.forEach { pickup ->
-                val cardView = createPickupCardView(pickup)
+                val cardView = createPickupCardView(pickup, userRole)
                 upcomingContainer.addView(cardView)
             }
         } else {
@@ -129,7 +137,7 @@ class MyPickupsActivity : AppCompatActivity() {
         historyContainer.removeAllViews()
         if (historyList.isNotEmpty()) {
             historyList.forEach { pickup ->
-                val cardView = createPickupCardView(pickup)
+                val cardView = createPickupCardView(pickup, userRole)
                 historyContainer.addView(cardView)
             }
         } else {
@@ -169,7 +177,10 @@ class MyPickupsActivity : AppCompatActivity() {
         }
     }
 
-    private fun createPickupCardView(pickup: PickupModel): View {
+    private fun createPickupCardView(
+        pickup: PickupModel,
+        userRole: UserRole = UserRole.RESIDENT
+    ): View {
         val cardLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundResource(R.drawable.bg_card)
@@ -296,8 +307,48 @@ class MyPickupsActivity : AppCompatActivity() {
         cardLayout.addView(row2)
         cardLayout.addView(row3)
 
-        // Business Rule: Cancellation allowed ONLY for "Scheduled" pickups
-        if (pickup.status == "Scheduled" && pickup.pickupId.isNotEmpty()) {
+        // Role-Based Actions: Agents/Admins can advance status; Residents can cancel scheduled pickups
+        if (userRole.canUpdatePickupStatus() && pickup.pickupId.isNotEmpty()) {
+            if (pickup.status == "Scheduled") {
+                val startBtn = AppCompatButton(this).apply {
+                    text = "Start Pickup (Agent)"
+                    textSize = 12f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(Color.parseColor("#1D61E8"))
+                    setBackgroundResource(R.drawable.bg_input_box)
+                    val lp = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        (36 * resources.displayMetrics.density).toInt()
+                    )
+                    lp.topMargin = (12 * resources.displayMetrics.density).toInt()
+                    layoutParams = lp
+
+                    setOnClickListener {
+                        updatePickupStatus(pickup.pickupId, "In Progress")
+                    }
+                }
+                cardLayout.addView(startBtn)
+            } else if (pickup.status == "In Progress") {
+                val completeBtn = AppCompatButton(this).apply {
+                    text = "Complete Pickup (Agent)"
+                    textSize = 12f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(Color.parseColor("#166534"))
+                    setBackgroundResource(R.drawable.bg_input_box)
+                    val lp = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        (36 * resources.displayMetrics.density).toInt()
+                    )
+                    lp.topMargin = (12 * resources.displayMetrics.density).toInt()
+                    layoutParams = lp
+
+                    setOnClickListener {
+                        updatePickupStatus(pickup.pickupId, "Completed")
+                    }
+                }
+                cardLayout.addView(completeBtn)
+            }
+        } else if (pickup.status == "Scheduled" && pickup.pickupId.isNotEmpty()) {
             val cancelBtn = AppCompatButton(this).apply {
                 text = "Cancel Request"
                 textSize = 12f
@@ -342,6 +393,23 @@ class MyPickupsActivity : AppCompatActivity() {
             }
             .setNegativeButton("Keep Request", null)
             .show()
+    }
+
+    private fun updatePickupStatus(pickupId: String, newStatus: String) {
+        val now = System.currentTimeMillis()
+        val updates = mapOf<String, Any>(
+            "status" to newStatus,
+            "updatedAt" to now
+        )
+        FirebaseFirestore.getInstance()
+            .collection("pickups").document(pickupId).update(updates)
+            .addOnSuccessListener {
+                Toast.makeText(this, "Pickup status updated to $newStatus.", Toast.LENGTH_SHORT).show()
+                loadPickups()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Failed to update status: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun setupBottomNav() {

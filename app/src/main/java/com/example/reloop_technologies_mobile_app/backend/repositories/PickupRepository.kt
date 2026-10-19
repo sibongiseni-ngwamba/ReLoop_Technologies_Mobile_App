@@ -2,20 +2,32 @@ package com.example.reloop_technologies_mobile_app.backend.repositories
 
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.example.reloop_technologies_mobile_app.backend.models.PickupModel
+import com.example.reloop_technologies_mobile_app.backend.models.UserRole
 import com.example.reloop_technologies_mobile_app.backend.services.FirestoreService
 
 class PickupRepository(
     private val firestoreService: FirestoreService = FirestoreService()
 ) {
-    fun fetchPickupsForUser(userId: String, onResult: (ResultState<List<PickupModel>>) -> Unit) {
+    fun fetchPickupsForUser(
+        userId: String,
+        role: String = "resident",
+        onResult: (ResultState<List<PickupModel>>) -> Unit
+    ) {
         if (userId.isEmpty()) {
             onResult(ResultState.Error(message = "User ID is empty."))
             return
         }
         onResult(ResultState.Loading)
-        firestoreService.db.collection("pickups")
-            .whereEqualTo("userId", userId)
-            .get()
+
+        val userRole = UserRole.fromString(role)
+
+        val query = if (userRole.canManageAllPickups()) {
+            firestoreService.db.collection("pickups")
+        } else {
+            firestoreService.db.collection("pickups").whereEqualTo("userId", userId)
+        }
+
+        query.get()
             .addOnSuccessListener { snapshot ->
                 try {
                     val seededIds = setOf("pickup_completed_1", "pickup_scheduled_1", "pickup_in_progress_1")

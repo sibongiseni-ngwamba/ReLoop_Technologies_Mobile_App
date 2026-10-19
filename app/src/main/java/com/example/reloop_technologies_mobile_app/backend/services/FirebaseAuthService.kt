@@ -1,8 +1,13 @@
 package com.example.reloop_technologies_mobile_app.backend.services
 
+import android.content.Context
+import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 
 class FirebaseAuthService(
@@ -82,7 +87,39 @@ class FirebaseAuthService(
             }
     }
 
-    fun signOut() {
+    fun signInWithGoogleIdToken(idToken: String, onResult: (ResultState<FirebaseUser>) -> Unit) {
+        onResult(ResultState.Loading)
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.signInWithCredential(credential)
+            .addOnSuccessListener { authResult ->
+                val user = authResult.user
+                if (user != null) {
+                    onResult(ResultState.Success(user))
+                } else {
+                    onResult(ResultState.Error(message = "Google SSO sign-in succeeded but user session is null."))
+                }
+            }
+            .addOnFailureListener { exception ->
+                val msg = exception.localizedMessage ?: "Google SSO authentication failed."
+                onResult(ResultState.Error(exception = exception, message = msg))
+            }
+    }
+
+    fun signOut(context: Context? = null) {
         auth.signOut()
+        if (context != null) {
+            try {
+                val webClientId = context.getString(R.string.default_web_client_id)
+                val gso = GoogleSignInOptions.Builder(
+                    GoogleSignInOptions.DEFAULT_SIGN_IN
+                )
+                    .requestIdToken(webClientId)
+                    .requestEmail()
+                    .build()
+                GoogleSignIn.getClient(context, gso).signOut()
+            } catch (_: Exception) {
+                // Ignore fallback Google client signout exceptions
+            }
+        }
     }
 }

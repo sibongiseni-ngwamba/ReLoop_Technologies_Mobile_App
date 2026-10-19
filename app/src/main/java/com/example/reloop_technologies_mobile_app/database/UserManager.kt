@@ -9,6 +9,7 @@ object UserManager {
     private const val KEY_EMAIL = "user_email"
     private const val KEY_PHONE = "user_phone"
     private const val KEY_ADDRESS = "user_address"
+    private const val KEY_ROLE = "user_role"
     private const val KEY_IS_LOGGED_IN = "is_logged_in"
 
     fun saveUserProfile(context: Context, userData: UserData) {
@@ -20,6 +21,7 @@ object UserManager {
             putString(KEY_EMAIL, userData.email)
             putString(KEY_PHONE, userData.phone)
             putString(KEY_ADDRESS, userData.address)
+            putString(KEY_ROLE, userData.role)
             putBoolean(KEY_IS_LOGGED_IN, true)
             apply()
         }
@@ -34,7 +36,8 @@ object UserManager {
             name = prefs.getString(KEY_NAME, "").orEmpty(),
             email = prefs.getString(KEY_EMAIL, "").orEmpty(),
             phone = prefs.getString(KEY_PHONE, "").orEmpty(),
-            address = prefs.getString(KEY_ADDRESS, "").orEmpty()
+            address = prefs.getString(KEY_ADDRESS, "").orEmpty(),
+            role = prefs.getString(KEY_ROLE, "resident").orEmpty().ifEmpty { "resident" }
         )
     }
 

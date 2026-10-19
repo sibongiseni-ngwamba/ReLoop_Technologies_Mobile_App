@@ -6,5 +6,6 @@ data class UserData(
     val email: String = "",
     val phone: String = "",
     val address: String = "",
+    val role: String = "resident",
     val createdAt: Long = System.currentTimeMillis()
 )

@@ -83,6 +83,19 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
+            <TextView
+                android:id="@+id/roleBadgeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_badge_scheduled"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:text="Role: Resident"
+                android:textColor="@color/badge_scheduled_text"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
             <!-- Eco Impact Row -->
             <TextView
                 android:layout_width="match_parent"

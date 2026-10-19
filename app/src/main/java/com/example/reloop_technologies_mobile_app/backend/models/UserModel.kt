@@ -13,6 +13,9 @@ data class UserModel(
     val updatedAt: Long = System.currentTimeMillis(),
     val profileImageUrl: String? = null
 ) {
+    val userRole: UserRole
+        get() = UserRole.fromString(role)
+
     val fullName: String
-        get() = "$firstName $lastName".trim().ifEmpty { "Resident" }
+        get() = "$firstName $lastName".trim().ifEmpty { userRole.displayName }
 }

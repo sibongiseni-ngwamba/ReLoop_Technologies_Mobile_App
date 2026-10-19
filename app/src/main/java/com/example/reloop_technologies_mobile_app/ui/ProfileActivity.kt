@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.example.reloop_technologies_mobile_app.backend.models.UserModel
@@ -105,7 +106,7 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.logoutButton)?.setSingleClickListener {
-            authService.signOut()
+            authService.signOut(this)
             UserManager.logout(this)
             startActivity(Intent(this, MainActivity::class.java))
             finishAffinity()
@@ -143,7 +144,8 @@ class ProfileActivity : AppCompatActivity() {
             lastName = nameParts.getOrElse(1) { "" },
             email = authService.currentUser?.email ?: localProfile.email,
             phoneNumber = localProfile.phone,
-            address = localProfile.address
+            address = localProfile.address,
+            role = localProfile.role
         )
         populateUi(currentUserModel)
 

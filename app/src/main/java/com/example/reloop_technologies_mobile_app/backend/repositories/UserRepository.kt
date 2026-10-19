@@ -51,7 +51,7 @@ class UserRepository(
         firestoreService.db.collection("users").document(user.userId).set(user, SetOptions.merge())
             .addOnSuccessListener {
                 context?.let { ctx ->
-                    UserManager.saveUserProfile(ctx, UserData(user.userId, user.fullName, user.email, user.phoneNumber, user.address))
+                    UserManager.saveUserProfile(ctx, UserData(user.userId, user.fullName, user.email, user.phoneNumber, user.address, user.role))
                 }
                 onResult(ResultState.Success(true))
             }

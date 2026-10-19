@@ -12,7 +12,20 @@
           "package_name": "com.example.reloop_technologies_mobile_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "952044239852-oo5lh0vr639m3lt9p80dcd0pe08m5bvs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.reloop_technologies_mobile_app",
+            "certificate_hash": "86d431a109407ea0d507a740a31d0c3873474e87"
+          }
+        },
+        {
+          "client_id": "952044239852-s9ovqqnm2iiubo2sih4s8p1k892tv8ff.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDnkLonl_zTD6mqAXBruDEXBOrK5V3cMhU"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "952044239852-s9ovqqnm2iiubo2sih4s8p1k892tv8ff.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
