@@ -1,3 +1,7 @@
 <resources>
-    <string name="app_name">ReLoop_Technologies_Mobile_App</string>
+    <string name="app_name">ReLoop Mobile</string>
+    <string name="category_plastic">Plastic</string>
+    <string name="or_divider">OR</string>
+    <string name="continue_with_google">Continue with Google</string>
+    <string name="default_web_client_id">952044239852-s9ovqqnm2iiubo2sih4s8p1k892tv8ff.apps.googleusercontent.com</string>
 </resources>

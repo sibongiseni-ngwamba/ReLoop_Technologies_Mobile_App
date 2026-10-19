@@ -26,6 +26,7 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:layout_gravity="center"
+                android:contentDescription="ReLoop Logo"
                 android:src="@drawable/ic_recycle_symbol" />
         </FrameLayout>
 
@@ -119,17 +120,87 @@
             android:textColor="@color/text_primary"
             android:textSize="14sp" />
 
+        <!-- Forgot Password Link -->
+        <TextView
+            android:id="@+id/forgotPasswordText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:text="Forgot password?"
+            android:textColor="@color/primary_green"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <!-- Progress Bar -->
+        <ProgressBar
+            android:id="@+id/loginProgressBar"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginTop="16dp"
+            android:indeterminateTint="@color/primary_green"
+            android:visibility="gone" />
+
         <!-- Login Button -->
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/loginButton"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="20dp"
             android:background="@drawable/bg_green_button"
             android:text="Login"
             android:textAllCaps="false"
             android:textColor="@color/white"
             android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <!-- OR Divider -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="#E5E7EB" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="12dp"
+                android:text="@string/or_divider"
+                android:textColor="@color/text_muted"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="#E5E7EB" />
+        </LinearLayout>
+
+        <!-- Google SSO Button -->
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/googleSignInButton"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_outlined_button"
+            android:drawableStart="@drawable/ic_google"
+            android:drawablePadding="12dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="Continue with Google"
+            android:textAllCaps="false"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <Space

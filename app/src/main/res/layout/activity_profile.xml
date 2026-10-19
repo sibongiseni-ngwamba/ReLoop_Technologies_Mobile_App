@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="Profile"
+            android:text="Profile &amp; Settings"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -59,7 +59,7 @@
                 android:layout_height="72dp"
                 android:background="@drawable/bg_circle_avatar"
                 android:gravity="center"
-                android:text="A"
+                android:text="?"
                 android:textColor="@color/primary_green_dark"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -69,7 +69,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:text="Alex Morgan"
+                android:text="Resident"
                 android:textColor="@color/text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
@@ -79,9 +79,22 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="alex.morgan@example.com"
+                android:text=""
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/roleBadgeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_badge_scheduled"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:text="Role: Resident"
+                android:textColor="@color/badge_scheduled_text"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <!-- Eco Impact Row -->
             <TextView
@@ -99,7 +112,6 @@
                 android:layout_marginTop="12dp"
                 android:orientation="horizontal">
 
-                <!-- Impact 1 -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -111,9 +123,10 @@
                     android:padding="12dp">
 
                     <TextView
+                        android:id="@+id/plasticSavedText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="15 kg"
+                        android:text="0 kg"
                         android:textColor="@color/primary_green"
                         android:textSize="18sp"
                         android:textStyle="bold" />
@@ -128,7 +141,6 @@
                         android:textSize="11sp" />
                 </LinearLayout>
 
-                <!-- Impact 2 -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -140,9 +152,10 @@
                     android:padding="12dp">
 
                     <TextView
+                        android:id="@+id/itemsScannedText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="32"
+                        android:text="0"
                         android:textColor="@color/primary_green"
                         android:textSize="18sp"
                         android:textStyle="bold" />
@@ -157,7 +170,6 @@
                         android:textSize="11sp" />
                 </LinearLayout>
 
-                <!-- Impact 3 -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -169,9 +181,10 @@
                     android:padding="12dp">
 
                     <TextView
+                        android:id="@+id/pickupsDoneText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="12"
+                        android:text="0"
                         android:textColor="@color/primary_green"
                         android:textSize="18sp"
                         android:textStyle="bold" />
@@ -188,12 +201,162 @@
 
             </LinearLayout>
 
-            <!-- Account Options -->
+            <!-- Personal Information Editing Card -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:text="Account &amp; Settings"
+                android:text="Personal Information"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- First Name -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="First Name"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/firstNameInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_input_box"
+                    android:hint="First Name"
+                    android:inputType="textPersonName"
+                    android:paddingHorizontal="12dp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp" />
+
+                <!-- Last Name -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Last Name"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/lastNameInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_input_box"
+                    android:hint="Last Name"
+                    android:inputType="textPersonName"
+                    android:paddingHorizontal="12dp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp" />
+
+                <!-- Phone Number -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Phone Number"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/phoneInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_input_box"
+                    android:hint="Phone number"
+                    android:inputType="phone"
+                    android:paddingHorizontal="12dp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp" />
+
+                <!-- Home Address -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Home Address"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/addressInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_input_box"
+                    android:hint="Home address"
+                    android:inputType="textPostalAddress"
+                    android:paddingHorizontal="12dp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp" />
+
+                <!-- Optional Profile Image URL -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Profile Image URL (Optional)"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/profileImageUrlInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_input_box"
+                    android:hint="https://example.com/avatar.jpg"
+                    android:inputType="textUri"
+                    android:paddingHorizontal="12dp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp" />
+
+                <!-- Save Changes Button -->
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/saveProfileButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/bg_green_button"
+                    android:text="Save Profile Changes"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <ProgressBar
+                    android:id="@+id/saveProgressBar"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- Account & Security Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Account &amp; Security"
                 android:textColor="@color/text_primary"
                 android:textSize="16sp"
                 android:textStyle="bold" />
@@ -206,8 +369,9 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="16dp">
 
-                <!-- Option 1 -->
+                <!-- Change Password -->
                 <LinearLayout
+                    android:id="@+id/changePasswordOption"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
                     android:clickable="true"
@@ -218,15 +382,15 @@
                     <ImageView
                         android:layout_width="20dp"
                         android:layout_height="20dp"
-                        android:contentDescription="Settings"
-                        android:src="@drawable/ic_settings" />
+                        android:contentDescription="Lock"
+                        android:src="@drawable/ic_lock" />
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="12dp"
                         android:layout_weight="1"
-                        android:text="Account Preferences"
+                        android:text="Change Password"
                         android:textColor="@color/text_primary"
                         android:textSize="14sp" />
                 </LinearLayout>
@@ -236,7 +400,38 @@
                     android:layout_height="1dp"
                     android:background="#F3F4F6" />
 
-                <!-- Option 2 -->
+                <!-- Password Reset Email -->
+                <LinearLayout
+                    android:id="@+id/resetPasswordOption"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="Mail"
+                        android:src="@drawable/ic_mail" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:text="Send Password Reset Email"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#F3F4F6" />
+
+                <!-- Recycling Guidance -->
                 <LinearLayout
                     android:id="@+id/guidanceOption"
                     android:layout_width="match_parent"
