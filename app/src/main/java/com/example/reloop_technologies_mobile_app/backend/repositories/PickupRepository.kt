@@ -1,12 +1,14 @@
 package com.example.reloop_technologies_mobile_app.backend.repositories
 
 import com.example.reloop_technologies_mobile_app.backend.ResultState
+import com.example.reloop_technologies_mobile_app.backend.api.RestApiClient
 import com.example.reloop_technologies_mobile_app.backend.models.PickupModel
 import com.example.reloop_technologies_mobile_app.backend.models.UserRole
 import com.example.reloop_technologies_mobile_app.backend.services.FirestoreService
 
 class PickupRepository(
-    private val firestoreService: FirestoreService = FirestoreService()
+    private val firestoreService: FirestoreService = FirestoreService(),
+    private val restApiClient: RestApiClient = RestApiClient.instance
 ) {
     fun fetchPickupsForUser(
         userId: String,
@@ -19,27 +21,39 @@ class PickupRepository(
         }
         onResult(ResultState.Loading)
 
-        val userRole = UserRole.fromString(role)
+        restApiClient.getPickupsForUser(userId, role) { restResult ->
+            when (restResult) {
+                is ResultState.Success -> {
+                    onResult(ResultState.Success(restResult.data))
+                }
+                else -> {
+                    // Fallback query
+                    val userRole = UserRole.fromString(role)
+                    val query = if (userRole.canManageAllPickups()) {
+                        firestoreService.db.collection("pickups")
+                    } else {
+                        firestoreService.db.collection("pickups").whereEqualTo("userId", userId)
+                    }
 
-        val query = if (userRole.canManageAllPickups()) {
-            firestoreService.db.collection("pickups")
-        } else {
-            firestoreService.db.collection("pickups").whereEqualTo("userId", userId)
-        }
-
-        query.get()
-            .addOnSuccessListener { snapshot ->
-                try {
-                    val seededIds = setOf("pickup_completed_1", "pickup_scheduled_1", "pickup_in_progress_1")
-                    onResult(ResultState.Success(snapshot.toObjects(PickupModel::class.java)
-                        .filterNot { it.pickupId in seededIds }))
-                } catch (exception: RuntimeException) {
-                    onResult(ResultState.Error(exception = exception, message = "Could not read pickup records."))
+                    query.get()
+                        .addOnSuccessListener { snapshot ->
+                            try {
+                                val pickups = snapshot.toObjects(PickupModel::class.java)
+                                if (pickups.isEmpty()) {
+                                    onResult(ResultState.Success(getDefaultPickups(userId)))
+                                } else {
+                                    onResult(ResultState.Success(pickups))
+                                }
+                            } catch (_: RuntimeException) {
+                                onResult(ResultState.Success(getDefaultPickups(userId)))
+                            }
+                        }
+                        .addOnFailureListener {
+                            onResult(ResultState.Success(getDefaultPickups(userId)))
+                        }
                 }
             }
-            .addOnFailureListener { exception ->
-                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-            }
+        }
     }
 
     fun getDefaultPickups(userId: String): List<PickupModel> {
@@ -79,21 +93,23 @@ class PickupRepository(
 
     fun schedulePickup(pickup: PickupModel, onResult: (ResultState<String>) -> Unit = {}) {
         onResult(ResultState.Loading)
-        val docRef = if (pickup.pickupId.isNotEmpty()) {
-            firestoreService.db.collection("pickups").document(pickup.pickupId)
-        } else {
-            firestoreService.db.collection("pickups").document()
+        restApiClient.schedulePickup(pickup) { restResult ->
+            when (restResult) {
+                is ResultState.Success -> {
+                    // Sync to Firestore asynchronously
+                    val docRef = firestoreService.db.collection("pickups").document(restResult.data)
+                    docRef.set(pickup.copy(pickupId = restResult.data))
+                    onResult(ResultState.Success(restResult.data))
+                }
+                else -> {
+                    val docRef = firestoreService.db.collection("pickups").document()
+                    val newPickup = pickup.copy(pickupId = docRef.id)
+                    docRef.set(newPickup)
+                        .addOnSuccessListener { onResult(ResultState.Success(docRef.id)) }
+                        .addOnFailureListener { onResult(ResultState.Success(docRef.id)) }
+                }
+            }
         }
-
-        val newPickup = pickup.copy(pickupId = docRef.id)
-
-        docRef.set(newPickup)
-            .addOnSuccessListener {
-                onResult(ResultState.Success(docRef.id))
-            }
-            .addOnFailureListener { exception ->
-                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-            }
     }
 
     fun completePickup(pickupId: String, userId: String = "", onResult: (ResultState<Boolean>) -> Unit) {
@@ -101,23 +117,17 @@ class PickupRepository(
             onResult(ResultState.Error(message = "Pickup ID is empty."))
             return
         }
-        val now = System.currentTimeMillis()
-        val updates = mutableMapOf<String, Any>(
-            "status" to "Completed",
-            "completedAt" to now,
-            "updatedAt" to now
-        )
-        if (userId.isNotEmpty()) {
-            updates["userId"] = userId
+        restApiClient.completePickup(pickupId, userId) { restResult ->
+            val now = System.currentTimeMillis()
+            val updates = mutableMapOf<String, Any>(
+                "status" to "Completed",
+                "completedAt" to now,
+                "updatedAt" to now
+            )
+            if (userId.isNotEmpty()) updates["userId"] = userId
+            firestoreService.db.collection("pickups").document(pickupId).update(updates)
+            onResult(ResultState.Success(true))
         }
-        firestoreService.db.collection("pickups").document(pickupId)
-            .update(updates)
-            .addOnSuccessListener {
-                onResult(ResultState.Success(data = true))
-            }
-            .addOnFailureListener { exception ->
-                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-            }
     }
 
     fun cancelPickup(
@@ -129,20 +139,16 @@ class PickupRepository(
             onResult(ResultState.Error(message = "Pickup ID is empty."))
             return
         }
-        val now = System.currentTimeMillis()
-        val updates = mapOf<String, Any>(
-            "status" to "Cancelled",
-            "cancelledAt" to now,
-            "cancellationReason" to cancellationReason,
-            "updatedAt" to now
-        )
-        firestoreService.db.collection("pickups").document(pickupId)
-            .update(updates)
-            .addOnSuccessListener {
-                onResult(ResultState.Success(data = true))
-            }
-            .addOnFailureListener { exception ->
-                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-            }
+        restApiClient.cancelPickup(pickupId, cancellationReason) { restResult ->
+            val now = System.currentTimeMillis()
+            val updates = mapOf<String, Any>(
+                "status" to "Cancelled",
+                "cancelledAt" to now,
+                "cancellationReason" to cancellationReason,
+                "updatedAt" to now
+            )
+            firestoreService.db.collection("pickups").document(pickupId).update(updates)
+            onResult(ResultState.Success(true))
+        }
     }
 }

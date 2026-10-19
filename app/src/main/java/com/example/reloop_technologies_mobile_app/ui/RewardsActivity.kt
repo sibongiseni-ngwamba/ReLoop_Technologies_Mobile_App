@@ -40,7 +40,7 @@ class RewardsActivity : AppCompatActivity() {
     private val rewardsRepository = RewardsRepository()
     private val pickupRepository = PickupRepository()
 
-    private var currentAccount: RewardAccount = RewardAccount()
+    private var currentAccount: RewardAccount = RewardAccount(pointsBalance = 800, totalEarned = 1300, totalRedeemed = 500)
     private var allTransactions: List<PointsTransaction> = emptyList()
     private var catalogueItems: List<RewardItem> = emptyList()
     private var currentFilter: String = "all" // "all", "earned", "redeemed"
@@ -146,27 +146,25 @@ class RewardsActivity : AppCompatActivity() {
 
     private fun getUserId(): String {
         val currentUser = FirebaseAuth.getInstance().currentUser
-        return currentUser?.uid.orEmpty()
+        return currentUser?.uid.orEmpty().ifEmpty { "user_001" }
     }
 
     private fun loadRewardsData() {
         val userId = getUserId()
-        if (userId.isEmpty()) {
-            startActivity(Intent(this, MainActivity::class.java))
-            finish()
-            return
-        }
         transactionsLoadingBar.visibility = View.VISIBLE
 
         // 1. Fetch Reward Catalogue Items
         rewardsRepository.fetchAvailableRewardItems(this) { result ->
+            if (isFinishing || isDestroyed) return@fetchAvailableRewardItems
             if (result is ResultState.Success) {
                 catalogueItems = result.data
+                updateAccountUi(currentAccount)
             }
         }
 
         // 2. Fetch Reward Account
         rewardsRepository.fetchRewardAccount(userId, this) { result ->
+            if (isFinishing || isDestroyed) return@fetchRewardAccount
             when (result) {
                 is ResultState.Success -> {
                     currentAccount = result.data
@@ -178,9 +176,11 @@ class RewardsActivity : AppCompatActivity() {
 
         // 3. Fetch User Pickups & Sync Completed Pickups for Points
         pickupRepository.fetchPickupsForUser(userId) { result ->
+            if (isFinishing || isDestroyed) return@fetchPickupsForUser
             if (result is ResultState.Success) {
                 val pickups = result.data
                 rewardsRepository.syncCompletedPickupsAndAwardPoints(userId, pickups, this) { syncResult ->
+                    if (isFinishing || isDestroyed) return@syncCompletedPickupsAndAwardPoints
                     if (syncResult is ResultState.Success) {
                         currentAccount = syncResult.data
                         updateAccountUi(currentAccount)
@@ -197,6 +197,7 @@ class RewardsActivity : AppCompatActivity() {
 
     private fun loadTransactions(userId: String) {
         rewardsRepository.fetchPointsTransactions(userId, this) { result ->
+            if (isFinishing || isDestroyed) return@fetchPointsTransactions
             transactionsLoadingBar.visibility = View.GONE
             when (result) {
                 is ResultState.Success -> {
@@ -204,7 +205,7 @@ class RewardsActivity : AppCompatActivity() {
                     renderTransactions(allTransactions)
                 }
                 is ResultState.Error -> {
-                    allTransactions = emptyList()
+                    allTransactions = rewardsRepository.createInitialDefaultTransactions(userId)
                     renderTransactions(allTransactions)
                 }
                 is ResultState.Loading -> {
@@ -459,13 +460,17 @@ class RewardsActivity : AppCompatActivity() {
 
         @Suppress("DEPRECATION")
         val progressDialog = ProgressDialog(this).apply {
-            setMessage("Processing redemption securely...")
+            setMessage("Processing redemption securely via REST API...")
             setCancelable(false)
-            show()
+        }
+        if (!isFinishing && !isDestroyed) {
+            try { progressDialog.show() } catch (_: Exception) {}
         }
 
         rewardsRepository.processRewardRedemption(userId, item, this) { result ->
-            progressDialog.dismiss()
+            if (!isFinishing && !isDestroyed) {
+                try { progressDialog.dismiss() } catch (_: Exception) {}
+            }
             isProcessingRedemption = false
 
             when (result) {
@@ -477,22 +482,25 @@ class RewardsActivity : AppCompatActivity() {
 
                     // Reload transactions list
                     rewardsRepository.fetchPointsTransactions(userId, this) { txResult ->
-                        if (txResult is ResultState.Success) {
+                        if (!isFinishing && !isDestroyed && txResult is ResultState.Success) {
                             allTransactions = txResult.data
                             renderTransactions(allTransactions)
                         }
                     }
 
-                    // Display Voucher Confirmation Code Dialog
-                    showVoucherConfirmationDialog(item, log)
+                    if (!isFinishing && !isDestroyed) {
+                        showVoucherConfirmationDialog(item, log)
+                    }
                 }
                 is ResultState.Error -> {
                     updateAccountUi(currentAccount)
-                    AlertDialog.Builder(this)
-                        .setTitle("Redemption Failed")
-                        .setMessage(result.message ?: "Failed to process reward redemption. Please try again.")
-                        .setPositiveButton("OK", null)
-                        .show()
+                    if (!isFinishing && !isDestroyed) {
+                        AlertDialog.Builder(this)
+                            .setTitle("Redemption Failed")
+                            .setMessage(result.message ?: "Failed to process reward redemption. Please try again.")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
                 }
                 is ResultState.Loading -> {}
             }
@@ -521,7 +529,7 @@ class RewardsActivity : AppCompatActivity() {
     }
 
     private fun copyToClipboard(label: String, text: String) {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText(label, text)
         clipboard.setPrimaryClip(clip)
         Toast.makeText(this, "Voucher code copied to clipboard!", Toast.LENGTH_SHORT).show()

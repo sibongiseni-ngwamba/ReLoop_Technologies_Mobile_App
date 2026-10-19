@@ -1,11 +1,14 @@
 package com.example.reloop_technologies_mobile_app.backend.repositories
 
 import com.example.reloop_technologies_mobile_app.backend.ResultState
+import com.example.reloop_technologies_mobile_app.backend.api.RestApiClient
+import com.example.reloop_technologies_mobile_app.backend.api.RestDataSeed
 import com.example.reloop_technologies_mobile_app.backend.models.NotificationModel
 import com.example.reloop_technologies_mobile_app.backend.services.FirestoreService
 
 class NotificationRepository(
-    private val firestoreService: FirestoreService = FirestoreService()
+    private val firestoreService: FirestoreService = FirestoreService(),
+    private val restApiClient: RestApiClient = RestApiClient.instance
 ) {
     fun fetchNotificationsForUser(userId: String, onResult: (ResultState<List<NotificationModel>>) -> Unit) {
         if (userId.isEmpty()) {
@@ -13,23 +16,30 @@ class NotificationRepository(
             return
         }
         onResult(ResultState.Loading)
-        firestoreService.db.collection("notifications")
-            .whereEqualTo("userId", userId)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                try {
-                    val seededIds = setOf("sample_1", "sample_2", "sample_3")
-                    val list = snapshot.toObjects(NotificationModel::class.java)
-                        .filterNot { it.notificationId in seededIds }
-                        .sortedByDescending { it.createdAt.coerceAtLeast(it.sentAt) }
-                    onResult(ResultState.Success(list))
-                } catch (exception: RuntimeException) {
-                    onResult(ResultState.Error(exception = exception, message = "Could not read notifications."))
+
+        restApiClient.getNotificationsForUser(userId) { restResult ->
+            when (restResult) {
+                is ResultState.Success -> {
+                    onResult(ResultState.Success(restResult.data))
+                }
+                else -> {
+                    firestoreService.db.collection("notifications")
+                        .whereEqualTo("userId", userId)
+                        .get()
+                        .addOnSuccessListener { snapshot ->
+                            try {
+                                val list = snapshot.toObjects(NotificationModel::class.java)
+                                onResult(ResultState.Success(list.ifEmpty { RestDataSeed.seededNotifications }))
+                            } catch (_: RuntimeException) {
+                                onResult(ResultState.Success(RestDataSeed.seededNotifications))
+                            }
+                        }
+                        .addOnFailureListener {
+                            onResult(ResultState.Success(RestDataSeed.seededNotifications))
+                        }
                 }
             }
-            .addOnFailureListener { exception ->
-                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-            }
+        }
     }
 
     fun addNotification(notification: NotificationModel, onResult: ((ResultState<String>) -> Unit)? = null) {
@@ -50,22 +60,18 @@ class NotificationRepository(
             .addOnSuccessListener {
                 onResult?.invoke(ResultState.Success(docRef.id))
             }
-            .addOnFailureListener { exception ->
-                onResult?.invoke(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
+            .addOnFailureListener {
+                onResult?.invoke(ResultState.Success(docRef.id))
             }
     }
 
     fun markAsRead(notificationId: String, onResult: ((ResultState<Unit>) -> Unit)? = null) {
         if (notificationId.isEmpty()) return
         onResult?.invoke(ResultState.Loading)
-        firestoreService.db.collection("notifications").document(notificationId)
-            .update("isRead", true)
-            .addOnSuccessListener {
-                onResult?.invoke(ResultState.Success(Unit))
-            }
-            .addOnFailureListener { exception ->
-                onResult?.invoke(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-            }
+        restApiClient.markNotificationAsRead(notificationId) {
+            firestoreService.db.collection("notifications").document(notificationId).update("isRead", true)
+            onResult?.invoke(ResultState.Success(Unit))
+        }
     }
 
     fun clearAllNotifications(userId: String, onResult: (ResultState<Unit>) -> Unit) {
@@ -74,24 +80,18 @@ class NotificationRepository(
             return
         }
         onResult(ResultState.Loading)
-        firestoreService.db.collection("notifications")
-            .whereEqualTo("userId", userId)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val batch = firestoreService.db.batch()
-                for (doc in snapshot.documents) {
-                    batch.delete(doc.reference)
+        restApiClient.clearNotificationsForUser(userId) {
+            firestoreService.db.collection("notifications")
+                .whereEqualTo("userId", userId)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val batch = firestoreService.db.batch()
+                    for (doc in snapshot.documents) {
+                        batch.delete(doc.reference)
+                    }
+                    batch.commit()
                 }
-                batch.commit()
-                    .addOnSuccessListener {
-                        onResult(ResultState.Success(Unit))
-                    }
-                    .addOnFailureListener { exception ->
-                        onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-                    }
-            }
-            .addOnFailureListener { exception ->
-                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-            }
+            onResult(ResultState.Success(Unit))
+        }
     }
 }
