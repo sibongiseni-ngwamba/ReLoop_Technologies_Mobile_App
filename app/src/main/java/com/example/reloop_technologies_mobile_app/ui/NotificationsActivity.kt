@@ -1,46 +1,29 @@
 package com.example.reloop_technologies_mobile_app.ui
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.ProgressBar
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.reloop_technologies_mobile_app.R
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.example.reloop_technologies_mobile_app.backend.models.NotificationModel
 import com.example.reloop_technologies_mobile_app.backend.repositories.NotificationRepository
-import com.example.reloop_technologies_mobile_app.database.UserManager
+import com.example.reloop_technologies_mobile_app.backend.services.SupabaseAuthService
 import com.example.reloop_technologies_mobile_app.ui.adapters.NotificationAdapter
-import com.google.firebase.auth.FirebaseAuth
 
 class NotificationsActivity : AppCompatActivity() {
 
     private val notificationRepository = NotificationRepository()
+    private val authService = SupabaseAuthService()
     private lateinit var adapter: NotificationAdapter
     private var notificationList = mutableListOf<NotificationModel>()
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var progressBar: ProgressBar
     private lateinit var emptyStateView: View
-
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (!isGranted) {
-            Toast.makeText(
-                this,
-                "Push notifications disabled. You can still view updates in your inbox.",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,7 +36,6 @@ class NotificationsActivity : AppCompatActivity() {
         emptyStateView = findViewById(R.id.emptyState)
 
         setupRecyclerView()
-        checkNotificationPermission()
         loadNotifications()
 
         findViewById<View>(R.id.clearAllButton)?.setOnClickListener {
@@ -69,20 +51,8 @@ class NotificationsActivity : AppCompatActivity() {
         recyclerView.adapter = adapter
     }
 
-    private fun checkNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
-
     private fun loadNotifications() {
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+        val currentUid = authService.currentUser?.uid.orEmpty()
 
         if (currentUid.isEmpty()) {
             showEmptyState()
@@ -132,7 +102,7 @@ class NotificationsActivity : AppCompatActivity() {
     }
 
     private fun clearNotifications() {
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+        val currentUid = authService.currentUser?.uid.orEmpty()
 
         notificationRepository.clearAllNotifications(currentUid) { result ->
             when (result) {

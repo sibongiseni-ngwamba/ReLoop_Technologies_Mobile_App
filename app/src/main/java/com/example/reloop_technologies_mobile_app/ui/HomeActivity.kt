@@ -13,13 +13,14 @@ import com.example.reloop_technologies_mobile_app.backend.repositories.Notificat
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.UserRepository
+import com.example.reloop_technologies_mobile_app.backend.services.SupabaseAuthService
 import com.example.reloop_technologies_mobile_app.database.UserManager
-import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class HomeActivity : AppCompatActivity() {
+    private val authService = SupabaseAuthService()
     private val userRepository = UserRepository()
     private val rewardsRepository = RewardsRepository()
     private val pickupRepository = PickupRepository()
@@ -29,7 +30,7 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         // Restrict authenticated screen: Ensure user is signed in
-        if (FirebaseAuth.getInstance().currentUser == null) {
+        if (authService.currentUser == null) {
             UserManager.logout(this)
             startActivity(Intent(this, MainActivity::class.java))
             finish()
@@ -47,7 +48,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun loadDashboardData() {
-        val currentUser = FirebaseAuth.getInstance().currentUser
+        val currentUser = authService.currentUser
         if (currentUser == null) {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
@@ -69,9 +70,9 @@ class HomeActivity : AppCompatActivity() {
         pointsBalanceView.text = "${rewardsRepository.getLocalAccount(this, userId)?.pointsBalance ?: 0} pts"
 
         if (userId.isNotEmpty()) {
-            // Fetch User Profile from Firestore
+            // Fetch the user profile through the authenticated REST API.
             userRepository.fetchUserProfile(userId, this) { result ->
-                if (FirebaseAuth.getInstance().currentUser?.uid != userId || isFinishing) return@fetchUserProfile
+                if (authService.currentUser?.uid != userId || isFinishing) return@fetchUserProfile
                 when (result) {
                     is ResultState.Success -> {
                         val user = result.data
@@ -87,7 +88,7 @@ class HomeActivity : AppCompatActivity() {
 
             // Fetch Rewards Balance
             rewardsRepository.fetchRewardAccount(userId, this) { result ->
-                if (FirebaseAuth.getInstance().currentUser?.uid != userId || isFinishing) return@fetchRewardAccount
+                if (authService.currentUser?.uid != userId || isFinishing) return@fetchRewardAccount
                 when (result) {
                     is ResultState.Success -> {
                         val account = result.data
@@ -102,7 +103,7 @@ class HomeActivity : AppCompatActivity() {
                 when (result) {
                     is ResultState.Success -> {
                         val pickups = result.data
-                        if (FirebaseAuth.getInstance().currentUser?.uid == userId && !isFinishing) {
+                        if (authService.currentUser?.uid == userId && !isFinishing) {
                             val container = findViewById<LinearLayout>(R.id.recentActivityContainer)
                             container.removeAllViews()
                             pickups.sortedByDescending { it.createdAt }.take(3).forEach { pickup ->
@@ -128,7 +129,7 @@ class HomeActivity : AppCompatActivity() {
 
             // Fetch Notifications for Unread Badge Indicator
             notificationRepository.fetchNotificationsForUser(userId) { result ->
-                if (FirebaseAuth.getInstance().currentUser?.uid != userId || isFinishing) return@fetchNotificationsForUser
+                if (authService.currentUser?.uid != userId || isFinishing) return@fetchNotificationsForUser
                 if (result is ResultState.Success) {
                     val hasUnread = result.data.any { !it.isRead }
                     findViewById<View>(R.id.notificationBadgeDot)?.visibility =
