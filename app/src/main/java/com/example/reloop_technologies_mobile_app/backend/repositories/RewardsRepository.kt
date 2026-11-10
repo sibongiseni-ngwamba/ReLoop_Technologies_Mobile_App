@@ -7,6 +7,8 @@ import com.example.reloop_technologies_mobile_app.backend.models.PointsTransacti
 import com.example.reloop_technologies_mobile_app.backend.models.RedemptionLog
 import com.example.reloop_technologies_mobile_app.backend.models.RewardAccount
 import com.example.reloop_technologies_mobile_app.backend.models.RewardItem
+import com.example.reloop_technologies_mobile_app.backend.models.BusinessRules
+import com.example.reloop_technologies_mobile_app.backend.models.RewardItemMapper
 import com.example.reloop_technologies_mobile_app.backend.services.FirestoreService
 
 class RewardsRepository(
@@ -252,7 +254,9 @@ class RewardsRepository(
             .whereEqualTo("isActive", true)
             .get()
             .addOnSuccessListener { snapshot ->
-                val items = snapshot.toObjects(RewardItem::class.java)
+                val items = snapshot.documents.mapNotNull { document ->
+                    document.data?.let { fields -> RewardItemMapper.fromFields(document.id, fields) }
+                }
                 if (items.isEmpty()) {
                     onResult(ResultState.Success(getDefaultRewardItems()))
                 } else {
@@ -320,19 +324,9 @@ class RewardsRepository(
 
             val account = accountResult.data
 
-            if (!rewardItem.isActive) {
-                onResult(ResultState.Error(message = "This reward item is currently inactive or unavailable."))
-                return@fetchRewardAccount
-            }
-
-            if (rewardItem.stockQuantity != null && rewardItem.stockQuantity <= 0) {
-                onResult(ResultState.Error(message = "This reward item is currently out of stock."))
-                return@fetchRewardAccount
-            }
-
-            if (account.pointsBalance < rewardItem.pointsCost) {
-                val needed = rewardItem.pointsCost - account.pointsBalance
-                onResult(ResultState.Error(message = "Insufficient points balance! You need $needed more points."))
+            val validationError = BusinessRules.validateRedemption(account, rewardItem)
+            if (validationError != null) {
+                onResult(ResultState.Error(message = validationError))
                 return@fetchRewardAccount
             }
 

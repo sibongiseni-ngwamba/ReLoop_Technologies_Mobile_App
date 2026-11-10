@@ -1,6 +1,7 @@
 package com.example.reloop_technologies_mobile_app.backend.repositories
 
 import com.example.reloop_technologies_mobile_app.backend.ResultState
+import com.example.reloop_technologies_mobile_app.backend.models.BusinessRules
 import com.example.reloop_technologies_mobile_app.backend.models.PickupModel
 import com.example.reloop_technologies_mobile_app.backend.models.UserRole
 import com.example.reloop_technologies_mobile_app.backend.services.FirestoreService
@@ -96,7 +97,7 @@ class PickupRepository(
             }
     }
 
-    fun completePickup(pickupId: String, userId: String = "", onResult: (ResultState<Boolean>) -> Unit) {
+    fun completePickup(pickupId: String, onResult: (ResultState<Boolean>) -> Unit) {
         if (pickupId.isEmpty()) {
             onResult(ResultState.Error(message = "Pickup ID is empty."))
             return
@@ -107,17 +108,7 @@ class PickupRepository(
             "completedAt" to now,
             "updatedAt" to now
         )
-        if (userId.isNotEmpty()) {
-            updates["userId"] = userId
-        }
-        firestoreService.db.collection("pickups").document(pickupId)
-            .update(updates)
-            .addOnSuccessListener {
-                onResult(ResultState.Success(data = true))
-            }
-            .addOnFailureListener { exception ->
-                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-            }
+        updatePickupStatus(pickupId, "Completed", updates, onResult)
     }
 
     fun cancelPickup(
@@ -136,13 +127,28 @@ class PickupRepository(
             "cancellationReason" to cancellationReason,
             "updatedAt" to now
         )
-        firestoreService.db.collection("pickups").document(pickupId)
-            .update(updates)
-            .addOnSuccessListener {
-                onResult(ResultState.Success(data = true))
+        updatePickupStatus(pickupId, "Cancelled", updates, onResult)
+    }
+
+    private fun updatePickupStatus(
+        pickupId: String,
+        nextStatus: String,
+        updates: Map<String, Any>,
+        onResult: (ResultState<Boolean>) -> Unit
+    ) {
+        val pickupRef = firestoreService.db.collection("pickups").document(pickupId)
+        firestoreService.db.runTransaction { transaction ->
+            val snapshot = transaction.get(pickupRef)
+            val currentStatus = snapshot.getString("status").orEmpty()
+            if (!snapshot.exists() || !BusinessRules.canTransitionPickup(currentStatus, nextStatus)) {
+                throw IllegalStateException("Pickup cannot transition from $currentStatus to $nextStatus.")
             }
-            .addOnFailureListener { exception ->
-                onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
-            }
+            transaction.update(pickupRef, updates)
+            true
+        }.addOnSuccessListener {
+            onResult(ResultState.Success(true))
+        }.addOnFailureListener { exception ->
+            onResult(ResultState.Error(exception = exception, message = firestoreService.mapError(exception)))
+        }
     }
 }
