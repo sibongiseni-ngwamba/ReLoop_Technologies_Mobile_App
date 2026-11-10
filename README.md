@@ -15,6 +15,21 @@ ReLoop is an Android recycling services app built in Kotlin for the ReLoop Techn
 
 > **Classification note:** the current scan result is a prototype. It displays a fixed Plastic Bottle label, confidence score, and estimated weight; the app does not currently run an image classification model.
 
+## App screenshots
+
+| | |
+| --- | --- |
+| <img src="assets/1000196146.jpg" alt="ReLoop login screen" width="280"><br><sub>Sign in with email and password or continue with Google.</sub> | <img src="assets/1000196147.jpg" alt="Create account screen" width="280"><br><sub>Create an account with contact and address details.</sub> |
+| <img src="assets/1000196148.jpg" alt="Google account chooser" width="280"><br><sub>Choose a saved Google account for sign-in.</sub> | <img src="assets/1000196149.jpg" alt="Home dashboard" width="280"><br><sub>See points, recent activity, and quick actions.</sub> |
+| <img src="assets/1000196150.jpg" alt="Notifications screen" width="280"><br><sub>View pickup confirmations and other updates.</sub> | <img src="assets/1000196151.jpg" alt="Scan waste screen" width="280"><br><sub>Capture a waste image and review scanning tips.</sub> |
+| <img src="assets/1000196152.jpg" alt="Upcoming pickups" width="280"><br><sub>Track an upcoming pickup and its status.</sub> | <img src="assets/1000196153.jpg" alt="Pickup history" width="280"><br><sub>Review completed and past pickup requests.</sub> |
+| <img src="assets/1000196154.jpg" alt="Rewards catalogue with airtime item" width="280"><br><sub>Check the points balance and available rewards.</sub> | <img src="assets/1000196110.png" alt="Rewards activity and catalogue" width="280"><br><sub>Explore reward activity and catalogue entries.</sub> |
+| <img src="assets/1000196155.jpg" alt="Profile information" width="280"><br><sub>View personal information and eco impact.</sub> | <img src="assets/1000196156.jpg" alt="Profile settings" width="280"><br><sub>Save profile changes and access account settings.</sub> |
+
+## Demo video
+
+[Watch the app walkthrough](assets/az_recorder_20261110_181253.mp4)
+
 ## Technology
 
 - Kotlin and Android Views/XML
