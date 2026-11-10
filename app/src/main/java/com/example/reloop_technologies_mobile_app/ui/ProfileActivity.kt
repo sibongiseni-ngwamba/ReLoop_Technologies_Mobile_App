@@ -113,18 +113,7 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         // Bottom Nav
-        findViewById<View>(R.id.navHome)?.setOnClickListener {
-            startActivity(Intent(this, HomeActivity::class.java))
-        }
-        findViewById<View>(R.id.navScan)?.setOnClickListener {
-            startActivity(Intent(this, ScanWasteActivity::class.java))
-        }
-        findViewById<View>(R.id.navPickups)?.setOnClickListener {
-            startActivity(Intent(this, MyPickupsActivity::class.java))
-        }
-        findViewById<View>(R.id.navRewards)?.setOnClickListener {
-            startActivity(Intent(this, RewardsActivity::class.java))
-        }
+        bindTopLevelNavigation()
     }
 
     private fun getUserId(): String {

@@ -8,10 +8,13 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -78,6 +81,14 @@ class MainActivity : AppCompatActivity() {
         UserManager.logout(this)
 
         setContentView(R.layout.activity_main)
+
+        val loginScroll = findViewById<ScrollView>(R.id.loginScroll)
+        ViewCompat.setOnApplyWindowInsetsListener(loginScroll) { view, insets ->
+            val keyboardBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val navigationBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, maxOf(keyboardBottom, navigationBottom))
+            insets
+        }
 
         val emailInput = findViewById<EditText>(R.id.emailInput)
         val passwordInput = findViewById<EditText>(R.id.passwordInput)

@@ -191,19 +191,7 @@ class ScanWasteActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNav() {
-        findViewById<View>(R.id.navHome)?.setOnClickListener {
-            startActivity(Intent(this, HomeActivity::class.java))
-        }
-        findViewById<View>(R.id.navScan)?.setOnClickListener { /* Already on Scan */ }
-        findViewById<View>(R.id.navPickups)?.setOnClickListener {
-            startActivity(Intent(this, MyPickupsActivity::class.java))
-        }
-        findViewById<View>(R.id.navRewards)?.setOnClickListener {
-            startActivity(Intent(this, RewardsActivity::class.java))
-        }
-        findViewById<View>(R.id.navProfile)?.setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
+        bindTopLevelNavigation()
     }
 
     override fun onDestroy() {

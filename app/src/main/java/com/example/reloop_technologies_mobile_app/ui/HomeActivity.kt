@@ -39,6 +39,13 @@ class HomeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_home)
 
         setupClickListeners()
+        openRequestedTab(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openRequestedTab(intent)
     }
 
     override fun onResume() {
@@ -146,33 +153,21 @@ class HomeActivity : AppCompatActivity() {
 
         // Total Points Card
         findViewById<View>(R.id.pointsCard)?.setOnClickListener {
-            startActivity(Intent(this, RewardsActivity::class.java))
+            switchToTab(RewardsActivity::class.java)
         }
 
         // Quick Actions
         findViewById<View>(R.id.scanButton)?.setOnClickListener {
-            startActivity(Intent(this, ScanWasteActivity::class.java))
+            switchToTab(ScanWasteActivity::class.java)
         }
         findViewById<View>(R.id.scheduleButton)?.setOnClickListener {
             startActivity(Intent(this, SchedulePickupActivity::class.java))
         }
         findViewById<TextView>(R.id.pickupsLink)?.setOnClickListener {
-            startActivity(Intent(this, MyPickupsActivity::class.java))
+            switchToTab(MyPickupsActivity::class.java)
         }
 
         // Bottom Nav
-        findViewById<View>(R.id.navHome)?.setOnClickListener { /* Already on Home */ }
-        findViewById<View>(R.id.navScan)?.setOnClickListener {
-            startActivity(Intent(this, ScanWasteActivity::class.java))
-        }
-        findViewById<View>(R.id.navPickups)?.setOnClickListener {
-            startActivity(Intent(this, MyPickupsActivity::class.java))
-        }
-        findViewById<View>(R.id.navRewards)?.setOnClickListener {
-            startActivity(Intent(this, RewardsActivity::class.java))
-        }
-        findViewById<View>(R.id.navProfile)?.setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
+        bindTopLevelNavigation()
     }
 }

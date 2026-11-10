@@ -43,6 +43,7 @@ class RewardsActivity : AppCompatActivity() {
     private var currentAccount: RewardAccount = RewardAccount(pointsBalance = 800, totalEarned = 1300, totalRedeemed = 500)
     private var allTransactions: List<PointsTransaction> = emptyList()
     private var catalogueItems: List<RewardItem> = emptyList()
+    private var catalogueLoaded: Boolean = false
     private var currentFilter: String = "all" // "all", "earned", "redeemed"
     private var isProcessingRedemption: Boolean = false
 
@@ -255,19 +256,49 @@ class RewardsActivity : AppCompatActivity() {
         levelProgressBar.max = maxProgress
         levelProgressBar.progress = currentProgress
 
-        // Update Catalogue Redeem Buttons state based on points balance & active/stock status
-        val item1 = getItemByPosition(0, "$5 Coffee Shop Voucher", 500)
-        val item2 = getItemByPosition(1, "10% Off Eco Grocery", 800)
-        val item3 = getItemByPosition(2, "Plant a Tree in Your Name", 1000)
-        val item4 = getItemByPosition(3, "$15 Eco Store Gift Card", 1500)
-
-        updateButtonState(redeemButton1, item1, account.pointsBalance)
-        updateButtonState(redeemButton2, item2, account.pointsBalance)
-        updateButtonState(redeemButton3, item3, account.pointsBalance)
-        updateButtonState(redeemButton4, item4, account.pointsBalance)
+        updateCatalogueUi()
     }
 
-    private fun updateButtonState(btn: Button, item: RewardItem, currentBalance: Int) {
+    private fun updateCatalogueUi() {
+        val buttons = listOf(redeemButton1, redeemButton2, redeemButton3, redeemButton4)
+        val nameIds = listOf(R.id.rewardName1, R.id.rewardName2, R.id.rewardName3, R.id.rewardName4)
+        val descriptionIds = listOf(
+            R.id.rewardDescription1,
+            R.id.rewardDescription2,
+            R.id.rewardDescription3,
+            R.id.rewardDescription4
+        )
+        val pointsFormat = NumberFormat.getNumberInstance(Locale.US)
+
+        buttons.forEachIndexed { index, button ->
+            val card = button.parent as? View ?: return@forEachIndexed
+            val item = catalogueItems.getOrNull(index)
+            card.visibility = if (item == null && catalogueLoaded) View.GONE else View.VISIBLE
+            if (item != null) {
+                findViewById<TextView>(nameIds[index]).text = item.itemName
+                val description = item.description.takeIf { it.isNotBlank() }
+                val pointsLabel = "${pointsFormat.format(item.pointsCost)} pts"
+                findViewById<TextView>(descriptionIds[index]).text =
+                    if (description == null) pointsLabel else "$pointsLabel • $description"
+            }
+            updateButtonState(button, item, currentAccount.pointsBalance)
+        }
+    }
+
+    private fun updateButtonState(btn: Button, item: RewardItem?, currentBalance: Int) {
+        if (!catalogueLoaded) {
+            btn.isEnabled = false
+            btn.text = "Loading"
+            btn.alpha = 0.5f
+            return
+        }
+        if (item == null) return
+        if (item.pointsCost <= 0) {
+            btn.isEnabled = false
+            btn.text = "Unavailable"
+            btn.alpha = 0.5f
+            return
+        }
         if (!item.isActive || (item.stockQuantity != null && item.stockQuantity <= 0)) {
             btn.isEnabled = false
             btn.text = "Out of Stock"
@@ -536,18 +567,7 @@ class RewardsActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNav() {
-        findViewById<View>(R.id.navHome)?.setOnClickListener {
-            startActivity(Intent(this, HomeActivity::class.java))
-        }
-        findViewById<View>(R.id.navScan)?.setOnClickListener {
-            startActivity(Intent(this, ScanWasteActivity::class.java))
-        }
-        findViewById<View>(R.id.navPickups)?.setOnClickListener {
-            startActivity(Intent(this, MyPickupsActivity::class.java))
-        }
-        findViewById<View>(R.id.navProfile)?.setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
+        bindTopLevelNavigation()
     }
 
     private fun dpToPx(dp: Int): Int {

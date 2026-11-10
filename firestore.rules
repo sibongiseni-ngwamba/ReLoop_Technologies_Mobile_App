@@ -26,8 +26,14 @@ service cloud.firestore {
     // Users Collection: Users can read and update their own profile; Admins can manage all
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isOwner(userId) || isAdmin();
+      // New accounts cannot grant themselves a privileged role at creation.
+      allow create: if isOwner(userId)
+        && request.resource.data.role == 'resident'
+        && request.resource.data.isActive == true;
+      // Owners may edit profile data, but role and activation are admin-managed.
+      allow update: if isAdmin() || (isOwner(userId)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.isActive == resource.data.isActive);
       allow delete: if isAdmin();
     }
 
@@ -40,8 +46,23 @@ service cloud.firestore {
     // Pickups Collection: Users manage their own pickups; Agents and Admins can access and update status
     match /pickups/{pickupId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAgent() || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAgent() || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'Scheduled'
+        && request.resource.data.get('agentId', null) == null;
+      allow update: if isAgent() || isAdmin()
+        || (isOwner(resource.data.userId)
+          && resource.data.status == 'Scheduled'
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['scheduledDate', 'wasteType', 'wasteTypes', 'address', 'notes', 'updatedAt']))
+        || (isOwner(resource.data.userId)
+          && resource.data.status == 'Scheduled'
+          && request.resource.data.status == 'Cancelled'
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'cancelledAt', 'cancellationReason', 'updatedAt']));
       allow delete: if isAdmin();
     }
 

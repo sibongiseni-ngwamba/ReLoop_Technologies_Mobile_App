@@ -9,6 +9,8 @@ import com.example.reloop_technologies_mobile_app.backend.models.PointsTransacti
 import com.example.reloop_technologies_mobile_app.backend.models.RedemptionLog
 import com.example.reloop_technologies_mobile_app.backend.models.RewardAccount
 import com.example.reloop_technologies_mobile_app.backend.models.RewardItem
+import com.example.reloop_technologies_mobile_app.backend.models.BusinessRules
+import com.example.reloop_technologies_mobile_app.backend.models.RewardItemMapper
 import com.example.reloop_technologies_mobile_app.backend.services.FirestoreService
 
 class RewardsRepository(

@@ -21,7 +21,6 @@ import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRep
 import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -396,36 +395,21 @@ class MyPickupsActivity : AppCompatActivity() {
     }
 
     private fun updatePickupStatus(pickupId: String, newStatus: String) {
-        val now = System.currentTimeMillis()
-        val updates = mapOf<String, Any>(
-            "status" to newStatus,
-            "updatedAt" to now
-        )
-        FirebaseFirestore.getInstance()
-            .collection("pickups").document(pickupId).update(updates)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Pickup status updated to $newStatus.", Toast.LENGTH_SHORT).show()
-                loadPickups()
+        if (!newStatus.equals("Completed", ignoreCase = true)) return
+        pickupRepository.completePickup(pickupId) { result ->
+            when (result) {
+                is ResultState.Success -> {
+                    Toast.makeText(this, "Pickup status updated to $newStatus.", Toast.LENGTH_SHORT).show()
+                    loadPickups()
+                }
+                is ResultState.Error -> Toast.makeText(this, "Failed to update status: ${result.message}", Toast.LENGTH_SHORT).show()
+                else -> Unit
             }
-            .addOnFailureListener { e ->
-                Toast.makeText(this, "Failed to update status: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-            }
+        }
     }
 
     private fun setupBottomNav() {
-        findViewById<View>(R.id.navHome)?.setOnClickListener {
-            startActivity(Intent(this, HomeActivity::class.java))
-        }
-        findViewById<View>(R.id.navScan)?.setOnClickListener {
-            startActivity(Intent(this, ScanWasteActivity::class.java))
-        }
-        findViewById<View>(R.id.navPickups)?.setOnClickListener { /* Already on Pickups */ }
-        findViewById<View>(R.id.navRewards)?.setOnClickListener {
-            startActivity(Intent(this, RewardsActivity::class.java))
-        }
-        findViewById<View>(R.id.navProfile)?.setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
+        bindTopLevelNavigation()
     }
 
     private fun syncUserPickupsAndPoints() {
