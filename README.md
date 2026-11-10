@@ -29,7 +29,9 @@ ReLoop is an Android recycling services app built in Kotlin for the ReLoop Techn
 ## Demo video
 
 [Watch the app walkthrough](assets/az_recorder_20261110_181253.mp4)
+
 [Watch Youtube App Walkthrough](https://youtu.be/dBC2kRWj-LU)
+
 https://youtu.be/dBC2kRWj-LU
 
 ## Technology
