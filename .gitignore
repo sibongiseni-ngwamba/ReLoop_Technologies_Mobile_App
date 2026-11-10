@@ -14,13 +14,9 @@
 .cxx
 local.properties
 
-# Local credentials and Supabase CLI state
-.env
-.env.*
-!.env.example
-.supabase/.temp/
-backend/secrets/
-*firebase-service-account*.json
+# Firebase & Credential files
+google-services.json
+app/google-services.json
 *.keystore
 *.jks
 

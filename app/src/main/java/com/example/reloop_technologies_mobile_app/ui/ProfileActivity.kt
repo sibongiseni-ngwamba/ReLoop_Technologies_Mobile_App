@@ -19,7 +19,7 @@ import com.example.reloop_technologies_mobile_app.backend.models.UserModel
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.UserRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.WasteScanRepository
-import com.example.reloop_technologies_mobile_app.backend.services.SupabaseAuthService
+import com.example.reloop_technologies_mobile_app.backend.services.FirebaseAuthService
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
 import java.util.Locale
@@ -28,7 +28,7 @@ class ProfileActivity : AppCompatActivity() {
     private val userRepository = UserRepository()
     private val pickupRepository = PickupRepository()
     private val wasteScanRepository = WasteScanRepository()
-    private val authService = SupabaseAuthService()
+    private val authService = FirebaseAuthService()
 
     private var currentUserModel: UserModel = UserModel()
 
@@ -106,17 +106,10 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.logoutButton)?.setSingleClickListener {
-            authService.signOut(this) { result ->
-                when (result) {
-                    is ResultState.Success -> {
-                        UserManager.logout(this)
-                        startActivity(Intent(this, MainActivity::class.java))
-                        finishAffinity()
-                    }
-                    is ResultState.Error -> Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
-                    ResultState.Loading -> Unit
-                }
-            }
+            authService.signOut(this)
+            UserManager.logout(this)
+            startActivity(Intent(this, MainActivity::class.java))
+            finishAffinity()
         }
 
         // Bottom Nav
@@ -195,8 +188,8 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun populateUi(user: UserModel) {
-        val authUser = authService.currentUser
-        val email = authUser?.email ?: user.email
+        val firebaseUser = authService.currentUser
+        val email = firebaseUser?.email ?: user.email
 
         nameText.text = user.fullName
         emailText.text = email
@@ -337,8 +330,8 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun sendPasswordReset() {
-        val authUser = authService.currentUser
-        val email = authUser?.email ?: currentUserModel.email
+        val firebaseUser = authService.currentUser
+        val email = firebaseUser?.email ?: currentUserModel.email
 
         if (email.isEmpty()) {
             Toast.makeText(this, "No email found for this account.", Toast.LENGTH_SHORT).show()
