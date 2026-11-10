@@ -47,7 +47,7 @@ ReLoop is an Android recycling services app built in Kotlin for the ReLoop Techn
 - A Firebase project configured for this app
 ## Project Diagram Structure
 
-[![Architecture diagram](https://gitdiagram.com/diagram-badge.svg)](https://gitdiagram.com/sibongiseni-ngwamba/reloop_technologies_mobile_app?utm_source=readme&utm_medium=badge)
+[![Architecture diagram of sibongiseni-ngwamba/reloop_technologies_mobile_app](https://gitdiagram.com/sibongiseni-ngwamba/reloop_technologies_mobile_app/diagram.png)](https://gitdiagram.com/sibongiseni-ngwamba/reloop_technologies_mobile_app?utm_source=readme&utm_medium=picture)
 
 ---
 
