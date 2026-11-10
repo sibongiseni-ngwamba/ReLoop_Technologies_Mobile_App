@@ -45,6 +45,13 @@ ReLoop is an Android recycling services app built in Kotlin for the ReLoop Techn
 - Android Studio with Android SDK 37 installed
 - Java 21 (the Gradle daemon toolchain is configured in `gradle/gradle-daemon-jvm.properties`)
 - A Firebase project configured for this app
+## Project Diagram Structure
+
+[![Architecture diagram of sibongiseni-ngwamba/reloop_technologies_mobile_app](https://gitdiagram.com/sibongiseni-ngwamba/reloop_technologies_mobile_app/diagram.png)](https://gitdiagram.com/sibongiseni-ngwamba/reloop_technologies_mobile_app?utm_source=readme&utm_medium=picture)
+
+---
+
+## Backend Integration & Database Schema (Firebase Firestore ERD)
 
 The app supports Android 7.0 (API 24) and later. It uses application ID `com.example.reloop_technologies_mobile_app`.
 
