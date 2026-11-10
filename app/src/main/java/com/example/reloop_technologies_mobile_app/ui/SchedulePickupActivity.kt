@@ -17,9 +17,9 @@ import com.example.reloop_technologies_mobile_app.backend.models.PickupModel
 import com.example.reloop_technologies_mobile_app.backend.repositories.NotificationRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
 import com.example.reloop_technologies_mobile_app.backend.services.NotificationHelper
+import com.example.reloop_technologies_mobile_app.backend.services.SupabaseAuthService
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
-import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -28,6 +28,7 @@ class SchedulePickupActivity : AppCompatActivity() {
 
     private val pickupRepository = PickupRepository()
     private val notificationRepository = NotificationRepository()
+    private val authService = SupabaseAuthService()
 
     private lateinit var addressInput: EditText
     private lateinit var dateInput: EditText
@@ -56,7 +57,7 @@ class SchedulePickupActivity : AppCompatActivity() {
         submitButton = findViewById(R.id.submitButton)
         progressBar = findViewById(R.id.scheduleProgressBar)
 
-        val userProfile = UserManager.getUserProfile(this, FirebaseAuth.getInstance().currentUser?.uid.orEmpty())
+        val userProfile = UserManager.getUserProfile(this, authService.currentUser?.uid.orEmpty())
         if (userProfile.address.isNotEmpty()) {
             addressInput.setText(userProfile.address)
         }
@@ -155,7 +156,7 @@ class SchedulePickupActivity : AppCompatActivity() {
             return
         }
 
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+        val currentUid = authService.currentUser?.uid.orEmpty()
 
         if (currentUid.isEmpty()) {
             Toast.makeText(this, "Session expired. Please log in again.", Toast.LENGTH_LONG).show()

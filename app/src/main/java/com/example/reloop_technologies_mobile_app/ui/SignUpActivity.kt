@@ -19,9 +19,11 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.lifecycleScope
 import com.example.reloop_technologies_mobile_app.R
+import com.example.reloop_technologies_mobile_app.BuildConfig
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.example.reloop_technologies_mobile_app.backend.models.UserModel
-import com.example.reloop_technologies_mobile_app.backend.services.FirebaseAuthService
+import com.example.reloop_technologies_mobile_app.backend.services.SupabaseAuthService
+import com.example.reloop_technologies_mobile_app.backend.api.RestApiClient
 import com.example.reloop_technologies_mobile_app.database.UserData
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
@@ -30,18 +32,11 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthUserCollisionException
-import com.google.firebase.auth.FirebaseAuthWeakPasswordException
-import com.google.firebase.auth.UserProfileChangeRequest
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 class SignUpActivity : AppCompatActivity() {
 
-    private lateinit var firebaseAuth: FirebaseAuth
-    private lateinit var firestore: FirebaseFirestore
-    private lateinit var authService: FirebaseAuthService
+    private val authService = SupabaseAuthService()
 
     private val googleSignInLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -51,7 +46,7 @@ class SignUpActivity : AppCompatActivity() {
             val account = task.getResult(ApiException::class.java)
             val idToken = account?.idToken
             if (!idToken.isNullOrEmpty()) {
-                authenticateWithFirebaseGoogleToken(idToken)
+                authenticateWithGoogleToken(idToken)
             } else {
                 setLoadingState(false)
                 Toast.makeText(this, "Failed to retrieve Google credentials. Please try again.", Toast.LENGTH_LONG).show()
@@ -71,9 +66,6 @@ class SignUpActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sign_up)
 
-        firebaseAuth = FirebaseAuth.getInstance()
-        firestore = FirebaseFirestore.getInstance()
-        authService = FirebaseAuthService(firebaseAuth)
 
         val nameInput = findViewById<EditText>(R.id.nameInput)
         val emailInput = findViewById<EditText>(R.id.emailInput)
@@ -148,73 +140,40 @@ class SignUpActivity : AppCompatActivity() {
 
             setLoadingState(true)
 
-            firebaseAuth.createUserWithEmailAndPassword(email, password)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val firebaseUser = firebaseAuth.currentUser
-                        val uid = firebaseUser?.uid
-                        if (uid.isNullOrEmpty()) {
+            authService.signUp(email, password, name, phone, address) { state ->
+                when (state) {
+                    is ResultState.Success -> {
+                        val user = state.data
+                        if (user == null) {
                             setLoadingState(false)
-                            Toast.makeText(this, "Account created, but the session is unavailable. Please log in again.", Toast.LENGTH_LONG).show()
-                            return@addOnCompleteListener
+                            Toast.makeText(this, "Check your email to confirm the account, then sign in.", Toast.LENGTH_LONG).show()
+                            finish()
+                            return@signUp
                         }
-
-                        // Update Display Name
-                        val profileUpdates = UserProfileChangeRequest.Builder()
-                            .setDisplayName(name)
-                            .build()
-                        firebaseUser?.updateProfile(profileUpdates)
-
-                        // Save User Data Model
-                        val userData = UserData(
-                            uid = uid,
-                            name = name,
-                            email = email,
-                            phone = phone,
-                            address = address
-                        )
-
-                        UserManager.saveUserProfile(this, userData)
-
+                        val uid = user.uid
+                        UserManager.saveUserProfile(this, UserData(uid = uid, name = name, email = email, phone = phone, address = address))
                         val nameParts = name.split(Regex("\\s+"), limit = 2)
-                        val userProfile = UserModel(
-                            userId = uid,
-                            firstName = nameParts.first(),
-                            lastName = nameParts.getOrElse(1) { "" },
-                            email = email,
-                            phoneNumber = phone,
-                            address = address
-                        )
-
-                        firestore.collection("users").document(uid).set(userProfile)
-
+                        val profile = UserModel(userId = uid, firstName = nameParts.firstOrNull().orEmpty(), lastName = nameParts.getOrElse(1) { "" }, email = email, phoneNumber = phone, address = address)
+                        RestApiClient.instance.updateUserProfile(profile) { }
                         setLoadingState(false)
                         Toast.makeText(this, "Account created successfully! Welcome $name.", Toast.LENGTH_LONG).show()
-
                         startActivity(Intent(this, HomeActivity::class.java))
                         finishAffinity()
-                    } else {
-                        setLoadingState(false)
-
-                        val exception = task.exception
-                        if (exception is FirebaseAuthUserCollisionException) {
-                            emailInput?.error = "This email address is already registered."
-                            Toast.makeText(this, "An account with this email already exists. Please log in.", Toast.LENGTH_LONG).show()
-                        } else if (exception is FirebaseAuthWeakPasswordException) {
-                            passwordInput?.error = "Password is too weak. Choose a stronger password."
-                            Toast.makeText(this, "Weak password: " + exception.reason, Toast.LENGTH_LONG).show()
-                        } else {
-                            val msg = exception?.localizedMessage ?: "Registration failed. Please try again."
-                            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-                        }
                     }
+                    is ResultState.Error -> {
+                        setLoadingState(false)
+                        if (state.message.contains("already", true)) emailInput?.error = "This email address may already be registered."
+                        Toast.makeText(this, state.message, Toast.LENGTH_LONG).show()
+                    }
+                    ResultState.Loading -> setLoadingState(true)
                 }
+            }
         }
     }
 
     private fun performGoogleSSO() {
         setLoadingState(true)
-        val webClientId = getString(R.string.default_web_client_id)
+        val webClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
 
         val googleIdOption = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
@@ -234,7 +193,7 @@ class SignUpActivity : AppCompatActivity() {
                 val credential = result.credential
                 if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                     val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-                    authenticateWithFirebaseGoogleToken(googleIdTokenCredential.idToken)
+                    authenticateWithGoogleToken(googleIdTokenCredential.idToken)
                 } else {
                     fallbackGoogleSignIn(webClientId)
                 }
@@ -258,7 +217,7 @@ class SignUpActivity : AppCompatActivity() {
         googleSignInLauncher.launch(googleSignInClient.signInIntent)
     }
 
-    private fun authenticateWithFirebaseGoogleToken(idToken: String) {
+    private fun authenticateWithGoogleToken(idToken: String) {
         authService.signInWithGoogleIdToken(idToken) { result ->
             when (result) {
                 is ResultState.Success -> {
@@ -292,7 +251,7 @@ class SignUpActivity : AppCompatActivity() {
                         phoneNumber = phone,
                         address = address
                     )
-                    firestore.collection("users").document(user.uid).set(userProfile)
+                    RestApiClient.instance.updateUserProfile(userProfile) { }
 
                     setLoadingState(false)
                     Toast.makeText(this, "Welcome, ${name.ifEmpty { "User" }}!", Toast.LENGTH_SHORT).show()

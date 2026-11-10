@@ -18,10 +18,14 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.reloop_technologies_mobile_app.R
+import com.example.reloop_technologies_mobile_app.BuildConfig
 import com.example.reloop_technologies_mobile_app.backend.ResultState
 import com.example.reloop_technologies_mobile_app.backend.models.UserModel
-import com.example.reloop_technologies_mobile_app.backend.services.FirebaseAuthService
+import com.example.reloop_technologies_mobile_app.backend.services.SupabaseAuthService
+import com.example.reloop_technologies_mobile_app.backend.services.SupabaseClientProvider
+import com.example.reloop_technologies_mobile_app.backend.api.RestApiClient
 import com.example.reloop_technologies_mobile_app.database.UserManager
 import com.example.reloop_technologies_mobile_app.ui.utils.setSingleClickListener
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -29,16 +33,14 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
-import com.google.firebase.auth.FirebaseAuthInvalidUserException
-import com.google.firebase.firestore.FirebaseFirestore
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var firebaseAuth: FirebaseAuth
-    private lateinit var authService: FirebaseAuthService
+    private val authService = SupabaseAuthService()
+    private var hasNavigatedToHome = false
 
     private val googleSignInLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -48,7 +50,7 @@ class MainActivity : AppCompatActivity() {
             val account = task.getResult(ApiException::class.java)
             val idToken = account?.idToken
             if (!idToken.isNullOrEmpty()) {
-                authenticateWithFirebaseGoogleToken(idToken)
+                authenticateWithGoogleToken(idToken)
             } else {
                 setLoadingState(false)
                 Toast.makeText(this, "Failed to retrieve Google credentials. Please try again.", Toast.LENGTH_LONG).show()
@@ -67,17 +69,25 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        firebaseAuth = FirebaseAuth.getInstance()
-        authService = FirebaseAuthService(firebaseAuth)
-
-        if (firebaseAuth.currentUser != null) {
-            startActivity(Intent(this, HomeActivity::class.java))
-            finish()
+        if (authService.currentUser != null) {
+            openHome()
             return
         }
         UserManager.logout(this)
 
         setContentView(R.layout.activity_main)
+
+        if (SupabaseClientProvider.isConfigured) {
+            lifecycleScope.launch {
+                repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                    SupabaseClientProvider.client.auth.sessionStatus.collect { status ->
+                        if (status is SessionStatus.Authenticated && !isFinishing) {
+                            openHome()
+                        }
+                    }
+                }
+            }
+        }
 
         val emailInput = findViewById<EditText>(R.id.emailInput)
         val passwordInput = findViewById<EditText>(R.id.passwordInput)
@@ -127,45 +137,35 @@ class MainActivity : AppCompatActivity() {
 
             setLoadingState(true)
 
-            firebaseAuth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        val user = firebaseAuth.currentUser
-                        if (user == null) {
-                            setLoadingState(false)
-                            Toast.makeText(this, "Login session unavailable. Please try again.", Toast.LENGTH_LONG).show()
-                            return@addOnCompleteListener
-                        }
+            authService.signIn(email, password) { state ->
+                when (state) {
+                    is ResultState.Success -> {
+                        val user = state.data
                         val previous = UserManager.getUserProfile(this, user.uid)
                         UserManager.saveUserProfile(this, previous.copy(
                             name = previous.name.ifEmpty { user.displayName.orEmpty() },
                             email = user.email ?: email
                         ))
                         setLoadingState(false)
-                        startActivity(Intent(this, HomeActivity::class.java))
-                        finishAffinity()
-                    } else {
-                        setLoadingState(false)
-
-                        val exception = task.exception
-                        if (exception is FirebaseAuthInvalidUserException) {
-                            emailInput?.error = "No account found with this email. Please sign up."
-                            Toast.makeText(this, "Account does not exist. Please create an account.", Toast.LENGTH_LONG).show()
-                        } else if (exception is FirebaseAuthInvalidCredentialsException) {
-                            passwordInput?.error = "Incorrect password. Please try again."
-                            Toast.makeText(this, "Invalid credentials. Please check your password.", Toast.LENGTH_LONG).show()
-                        } else {
-                            val msg = exception?.localizedMessage ?: "Authentication failed. Please check network connection."
-                            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-                        }
+                        openHome()
                     }
+                    is ResultState.Error -> {
+                        setLoadingState(false)
+                        val message = state.message
+                        if (message.contains("invalid login", true) || message.contains("invalid credentials", true)) {
+                            passwordInput?.error = "Check your email and password."
+                        }
+                        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                    }
+                    ResultState.Loading -> setLoadingState(true)
                 }
+            }
         }
     }
 
     private fun performGoogleSSO() {
         setLoadingState(true)
-        val webClientId = getString(R.string.default_web_client_id)
+        val webClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
 
         val googleIdOption = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
@@ -185,7 +185,7 @@ class MainActivity : AppCompatActivity() {
                 val credential = result.credential
                 if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                     val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-                    authenticateWithFirebaseGoogleToken(googleIdTokenCredential.idToken)
+                    authenticateWithGoogleToken(googleIdTokenCredential.idToken)
                 } else {
                     fallbackGoogleSignIn(webClientId)
                 }
@@ -209,7 +209,7 @@ class MainActivity : AppCompatActivity() {
         googleSignInLauncher.launch(googleSignInClient.signInIntent)
     }
 
-    private fun authenticateWithFirebaseGoogleToken(idToken: String) {
+    private fun authenticateWithGoogleToken(idToken: String) {
         authService.signInWithGoogleIdToken(idToken) { result ->
             when (result) {
                 is ResultState.Success -> {
@@ -230,12 +230,11 @@ class MainActivity : AppCompatActivity() {
                         lastName = nameParts.getOrElse(1) { "" },
                         email = email
                     )
-                    FirebaseFirestore.getInstance().collection("users").document(user.uid).set(userProfile)
+                    RestApiClient.instance.updateUserProfile(userProfile) { }
 
                     setLoadingState(false)
                     Toast.makeText(this, "Welcome, ${displayName.ifEmpty { "User" }}!", Toast.LENGTH_SHORT).show()
-                    startActivity(Intent(this, HomeActivity::class.java))
-                    finishAffinity()
+                    openHome()
                 }
                 is ResultState.Error -> {
                     setLoadingState(false)
@@ -257,5 +256,12 @@ class MainActivity : AppCompatActivity() {
         progressBar?.visibility = if (isLoading) View.VISIBLE else View.GONE
         loginButton?.isEnabled = !isLoading
         googleButton?.isEnabled = !isLoading
+    }
+
+    private fun openHome() {
+        if (hasNavigatedToHome || isFinishing) return
+        hasNavigatedToHome = true
+        startActivity(Intent(this, HomeActivity::class.java))
+        finishAffinity()
     }
 }

@@ -29,8 +29,8 @@ import com.example.reloop_technologies_mobile_app.backend.models.RewardAccount
 import com.example.reloop_technologies_mobile_app.backend.models.RewardItem
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
+import com.example.reloop_technologies_mobile_app.backend.services.SupabaseAuthService
 import com.example.reloop_technologies_mobile_app.database.UserManager
-import com.google.firebase.auth.FirebaseAuth
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -39,8 +39,9 @@ import java.util.Locale
 class RewardsActivity : AppCompatActivity() {
     private val rewardsRepository = RewardsRepository()
     private val pickupRepository = PickupRepository()
+    private val authService = SupabaseAuthService()
 
-    private var currentAccount: RewardAccount = RewardAccount(pointsBalance = 800, totalEarned = 1300, totalRedeemed = 500)
+    private var currentAccount: RewardAccount = RewardAccount()
     private var allTransactions: List<PointsTransaction> = emptyList()
     private var catalogueItems: List<RewardItem> = emptyList()
     private var currentFilter: String = "all" // "all", "earned", "redeemed"
@@ -111,46 +112,36 @@ class RewardsActivity : AppCompatActivity() {
 
         // Voucher Redeem Actions
         redeemButton1.setOnClickListener {
-            val item = getItemByPosition(0, "$5 Coffee Shop Voucher", 500)
-            initiateRewardRedemption(item)
+            getItemByPosition(0)?.let(::initiateRewardRedemption) ?: showCatalogueUnavailable()
         }
         redeemButton2.setOnClickListener {
-            val item = getItemByPosition(1, "10% Off Eco Grocery", 800)
-            initiateRewardRedemption(item)
+            getItemByPosition(1)?.let(::initiateRewardRedemption) ?: showCatalogueUnavailable()
         }
         redeemButton3.setOnClickListener {
-            val item = getItemByPosition(2, "Plant a Tree in Your Name", 1000)
-            initiateRewardRedemption(item)
+            getItemByPosition(2)?.let(::initiateRewardRedemption) ?: showCatalogueUnavailable()
         }
         redeemButton4.setOnClickListener {
-            val item = getItemByPosition(3, "$15 Eco Store Gift Card", 1500)
-            initiateRewardRedemption(item)
+            getItemByPosition(3)?.let(::initiateRewardRedemption) ?: showCatalogueUnavailable()
         }
 
         setupBottomNav()
     }
 
-    private fun getItemByPosition(index: Int, defaultName: String, defaultCost: Int): RewardItem {
-        if (catalogueItems.size > index) {
-            return catalogueItems[index]
-        }
-        return RewardItem(
-            rewardItemId = "item_${index + 1}",
-            itemName = defaultName,
-            description = "Active reward item in catalogue",
-            pointsCost = defaultCost,
-            isActive = true,
-            stockQuantity = 50
-        )
-    }
+    private fun getItemByPosition(index: Int): RewardItem? = catalogueItems.getOrNull(index)
+
+    private fun showCatalogueUnavailable() = Toast.makeText(this, "Reward catalogue is unavailable. Please try again later.", Toast.LENGTH_SHORT).show()
 
     private fun getUserId(): String {
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        return currentUser?.uid.orEmpty().ifEmpty { "user_001" }
+        return authService.currentUser?.uid.orEmpty()
     }
 
     private fun loadRewardsData() {
         val userId = getUserId()
+        if (userId.isBlank()) {
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
         transactionsLoadingBar.visibility = View.VISIBLE
 
         // 1. Fetch Reward Catalogue Items
@@ -256,10 +247,10 @@ class RewardsActivity : AppCompatActivity() {
         levelProgressBar.progress = currentProgress
 
         // Update Catalogue Redeem Buttons state based on points balance & active/stock status
-        val item1 = getItemByPosition(0, "$5 Coffee Shop Voucher", 500)
-        val item2 = getItemByPosition(1, "10% Off Eco Grocery", 800)
-        val item3 = getItemByPosition(2, "Plant a Tree in Your Name", 1000)
-        val item4 = getItemByPosition(3, "$15 Eco Store Gift Card", 1500)
+        val item1 = getItemByPosition(0)
+        val item2 = getItemByPosition(1)
+        val item3 = getItemByPosition(2)
+        val item4 = getItemByPosition(3)
 
         updateButtonState(redeemButton1, item1, account.pointsBalance)
         updateButtonState(redeemButton2, item2, account.pointsBalance)
@@ -267,7 +258,13 @@ class RewardsActivity : AppCompatActivity() {
         updateButtonState(redeemButton4, item4, account.pointsBalance)
     }
 
-    private fun updateButtonState(btn: Button, item: RewardItem, currentBalance: Int) {
+    private fun updateButtonState(btn: Button, item: RewardItem?, currentBalance: Int) {
+        if (item == null) {
+            btn.isEnabled = false
+            btn.text = "Unavailable"
+            btn.alpha = 0.5f
+            return
+        }
         if (!item.isActive || (item.stockQuantity != null && item.stockQuantity <= 0)) {
             btn.isEnabled = false
             btn.text = "Out of Stock"

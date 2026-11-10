@@ -19,9 +19,8 @@ import com.example.reloop_technologies_mobile_app.backend.models.PickupModel
 import com.example.reloop_technologies_mobile_app.backend.models.UserRole
 import com.example.reloop_technologies_mobile_app.backend.repositories.PickupRepository
 import com.example.reloop_technologies_mobile_app.backend.repositories.RewardsRepository
+import com.example.reloop_technologies_mobile_app.backend.services.SupabaseAuthService
 import com.example.reloop_technologies_mobile_app.database.UserManager
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -30,6 +29,7 @@ class MyPickupsActivity : AppCompatActivity() {
 
     private val pickupRepository = PickupRepository()
     private val rewardsRepository = RewardsRepository()
+    private val authService = SupabaseAuthService()
 
     private lateinit var upcomingContainer: LinearLayout
     private lateinit var historyContainer: LinearLayout
@@ -92,7 +92,7 @@ class MyPickupsActivity : AppCompatActivity() {
     }
 
     private fun loadPickups() {
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+        val currentUid = authService.currentUser?.uid.orEmpty()
 
         if (currentUid.isEmpty()) return
 
@@ -396,20 +396,13 @@ class MyPickupsActivity : AppCompatActivity() {
     }
 
     private fun updatePickupStatus(pickupId: String, newStatus: String) {
-        val now = System.currentTimeMillis()
-        val updates = mapOf<String, Any>(
-            "status" to newStatus,
-            "updatedAt" to now
-        )
-        FirebaseFirestore.getInstance()
-            .collection("pickups").document(pickupId).update(updates)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Pickup status updated to $newStatus.", Toast.LENGTH_SHORT).show()
-                loadPickups()
+        pickupRepository.setPickupStatus(pickupId, newStatus) { result ->
+            when (result) {
+                is ResultState.Success -> { Toast.makeText(this, "Pickup status updated to $newStatus.", Toast.LENGTH_SHORT).show(); loadPickups() }
+                is ResultState.Error -> Toast.makeText(this, "Failed to update status: ${result.message}", Toast.LENGTH_SHORT).show()
+                ResultState.Loading -> Unit
             }
-            .addOnFailureListener { e ->
-                Toast.makeText(this, "Failed to update status: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-            }
+        }
     }
 
     private fun setupBottomNav() {
@@ -429,8 +422,7 @@ class MyPickupsActivity : AppCompatActivity() {
     }
 
     private fun syncUserPickupsAndPoints() {
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        val userId = currentUser?.uid.orEmpty()
+        val userId = authService.currentUser?.uid.orEmpty()
         if (userId.isEmpty()) return
 
         pickupRepository.fetchPickupsForUser(userId) { result ->
