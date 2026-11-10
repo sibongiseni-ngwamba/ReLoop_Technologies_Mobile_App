@@ -1,23 +1,9 @@
-import java.util.Properties
-
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-}
+    // Add the Google services Gradle plugin
+    id("com.google.gms.google-services")
 
-val localProperties = Properties().apply {
-    val localFile = rootProject.file("local.properties")
-    if (localFile.exists()) localFile.inputStream().use { load(it) }
+    alias(libs.plugins.android.application)
 }
-val configuredSupabaseUrl = providers.gradleProperty("SUPABASE_URL")
-    .orElse(localProperties.getProperty("SUPABASE_URL", ""))
-    .get()
-val configuredSupabaseKey = providers.gradleProperty("SUPABASE_ANON_KEY")
-    .orElse(localProperties.getProperty("SUPABASE_ANON_KEY", ""))
-    .get()
-val configuredGoogleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID")
-    .orElse(localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", ""))
-    .get()
 
 android {
     namespace = "com.example.reloop_technologies_mobile_app"
@@ -31,10 +17,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "SUPABASE_URL", "\"$configuredSupabaseUrl\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$configuredSupabaseKey\"")
-        buildConfigField("String", "RELOOP_API_URL", "\"${configuredSupabaseUrl.trimEnd('/')}/functions/v1/reloop-api/\"")
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$configuredGoogleWebClientId\"")
     }
 
     buildTypes {
@@ -47,33 +29,21 @@ android {
         }
     }
     compileOptions {
-        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-    buildFeatures {
-        buildConfig = true
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.android.gms:play-services-auth:21.3.0")
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
-    implementation(platform("io.github.jan-tennert.supabase:bom:3.9.0"))
-    implementation("io.github.jan-tennert.supabase:auth-kt")
-    implementation("io.ktor:ktor-client-android:3.3.3")
-    implementation("com.squareup.retrofit2:retrofit:2.12.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.12.0")
-    implementation("com.google.code.gson:gson:2.11.0")
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)
